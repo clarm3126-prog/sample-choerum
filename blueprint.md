@@ -10,9 +10,10 @@ This is a simple web application that generates random lotto numbers.
 *   Displays the generated numbers in a visually appealing way.
 *   Sorts the numbers in ascending order.
 *   Uses different colors for different number ranges.
+*   **Dark Mode/Light Mode:** A toggle to switch between dark and light themes.
 
 ## Current Plan
 
-*   **HTML:** Create the basic structure of the web page with a title, a container for the lotto numbers, and a button to generate the numbers.
-*   **CSS:** Style the page and the lotto number display to be visually appealing.
-*   **JavaScript:** Implement the logic to generate, sort, and display the random lotto numbers when the button is clicked.
+*   **HTML:** Add a toggle switch for dark/light mode.
+*   **CSS:** Implement CSS variables for theming and create styles for both dark and light modes.
+*   **JavaScript:** Add logic to handle theme switching and save the user's preference.

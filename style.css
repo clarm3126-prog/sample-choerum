@@ -1,14 +1,35 @@
+:root {
+    --background-color: #f0f0f0;
+    --text-color: #333;
+    --button-background: #4caf50;
+    --button-text-color: white;
+}
+
+[data-theme="dark"] {
+    --background-color: #333;
+    --text-color: #f0f0f0;
+    --button-background: #666;
+}
+
 body {
     font-family: sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background-color: #f0f0f0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
 }
 
 .container {
     text-align: center;
+}
+
+.theme-switcher {
+    position: absolute;
+    top: 20px;
+    right: 20px;
 }
 
 .numbers-container {
@@ -35,4 +56,8 @@ body {
     padding: 10px 20px;
     font-size: 16px;
     cursor: pointer;
+    background-color: var(--button-background);
+    color: var(--button-text-color);
+    border: none;
+    border-radius: 5px;
 }

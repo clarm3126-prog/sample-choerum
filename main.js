@@ -1,6 +1,8 @@
 const numbersContainer = document.getElementById('numbers');
 const generateBtn = document.getElementById('generate-btn');
+const themeToggle = document.getElementById('theme-toggle');
 
+// Function to generate and display lotto numbers
 function generateNumbers() {
     const numbers = [];
     while (numbers.length < 6) {
@@ -36,6 +38,34 @@ function generateNumbers() {
     }
 }
 
+// Function to set the theme
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    if (theme === 'dark') {
+        themeToggle.checked = true;
+    } else {
+        themeToggle.checked = false;
+    }
+}
+
+// Event listener for the theme toggle
+themeToggle.addEventListener('change', () => {
+    if (themeToggle.checked) {
+        setTheme('dark');
+    } else {
+        setTheme('light');
+    }
+});
+
+
+// Event listener for the generate button
 generateBtn.addEventListener('click', generateNumbers);
 
-generateNumbers(); // Initial generation
+// Initial setup
+// Check for saved theme in localStorage
+const savedTheme = localStorage.getItem('theme') || 'light';
+setTheme(savedTheme);
+
+// Initial number generation
+generateNumbers();
