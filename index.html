@@ -1,28 +1,349 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>한국 주식 거래대금 TOP 100</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AppSourcer - Google Play Real Data</title>
+  <style>
+    :root {
+      --bg: #060606;
+      --panel: #0d0d0d;
+      --line: #1a1a1a;
+      --muted: #666;
+      --text: #ddd;
+      --accent: #f0a500;
+      --ok: #66bb6a;
+      --warn: #f0a500;
+      --bad: #ef5350;
+      --info: #4fc3f7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Pretendard", "Noto Sans KR", sans-serif;
+    }
+
+    input, button {
+      font: inherit;
+      border-radius: 6px;
+      border: 1px solid #222;
+      background: #0a0a0a;
+      color: #ddd;
+      padding: 10px 12px;
+    }
+
+    input { flex: 1; min-width: 220px; }
+    input::placeholder { color: #555; }
+
+    button { cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .cat-btn {
+      background: transparent;
+      border: 1px solid #222;
+      color: #555;
+      padding: 7px 10px;
+      font-size: 12px;
+    }
+
+    .run-btn {
+      background: #1a1200;
+      border-color: #3a2a00;
+      color: #f0a500;
+      font-weight: 700;
+    }
+
+    .tag {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 100px;
+      white-space: nowrap;
+    }
+
+    .card {
+      background: #0d0d0d;
+      border: 1px solid #1e1e1e;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th, td {
+      border-bottom: 1px solid #1a1a1a;
+      padding: 9px 8px;
+      text-align: left;
+      font-size: 12px;
+      color: #777;
+      vertical-align: top;
+    }
+
+    th {
+      color: #aaa;
+      font-size: 11px;
+      background: #0a0a0a;
+      position: sticky;
+      top: 0;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+      #headerTags { display: none; }
+      #inputRow { flex-direction: column; }
+      #inputRow button { width: 100%; }
+    }
+  </style>
 </head>
 <body>
-    <h1>한국 주식 거래대금 TOP 100</h1>
-    <table id="stock-table">
-        <thead>
-            <tr>
-                <th>순위</th>
-                <th>종목명</th>
-                <th>현재가</th>
-                <th>전일대비</th>
-                <th>등락률</th>
-                <th>거래대금(백만)</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- 주식 정보가 여기에 동적으로 추가됩니다. -->
-        </tbody>
-    </table>
-    <script src="main.js"></script>
+  <div style="border-bottom:1px solid #111;padding:0 24px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#060606;z-index:100">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:30px;height:30px;border-radius:6px;background:linear-gradient(135deg,#f0a500,#ff5722);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#000">◈</div>
+      <div>
+        <div style="font-size:13px;font-weight:800">AppSourcer</div>
+        <div style="font-size:9px;color:#333;letter-spacing:2px;font-family:monospace">GOOGLE PLAY · REAL DATA</div>
+      </div>
+    </div>
+    <div id="headerTags" style="display:flex;gap:8px">
+      <span class="tag" style="background:#0a1a0a;border:1px solid #1a3a1a;color:#66bb6a">✅ google-play-scraper 무료</span>
+      <span class="tag" style="background:#1a1200;border:1px solid #3a2a00;color:#f0a500">📊 Free Metrics</span>
+    </div>
+  </div>
+
+  <div style="max-width:940px;margin:0 auto;padding:28px 20px">
+    <div style="margin-bottom:28px;animation:slideUp 0.4s ease">
+      <div style="font-size:10px;color:#f0a500;letter-spacing:3px;font-family:monospace;margin-bottom:8px">▶ GOOGLE PLAY 실제 데이터 기반 앱 소싱</div>
+      <h1 style="font-size:clamp(22px,4vw,38px);font-weight:900;margin:0 0 6px;line-height:1.1;letter-spacing:-1px;background:linear-gradient(135deg,#fff 50%,#333);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
+        키워드 → 실제 앱 데이터<br />→ AI 분석 리포트
+      </h1>
+      <p style="color:#444;font-size:13px">google-play-scraper로 실제 앱 데이터를 수집하고, 무료 핵심 지표 리포트를 생성합니다</p>
+    </div>
+
+    <div style="background:#0d0d0d;border:1px solid #1a1a1a;border-radius:10px;padding:18px 20px;margin-bottom:24px">
+      <div style="margin-bottom:14px">
+        <div style="font-size:10px;color:#444;font-family:monospace;letter-spacing:2px;margin-bottom:10px">카테고리 선택</div>
+        <div id="catBtns" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+      <div id="inputRow" style="border-top:1px solid #1a1a1a;padding-top:14px;display:flex;gap:8px">
+        <input id="kwInput" placeholder="키워드 직접 입력 (예: 생리주기, 수면 앱, 가계부...)" />
+        <button class="run-btn" id="runBtn">분석 시작 ▶</button>
+      </div>
+    </div>
+
+    <div id="progressBox" style="display:none;background:#0d0d0d;border:1px solid #1e1e1e;border-radius:10px;padding:16px 20px;margin-bottom:24px">
+      <div style="font-size:10px;color:#f0a500;font-family:monospace;letter-spacing:2px;margin-bottom:12px">▶ 실시간 데이터 수집 현황</div>
+      <div id="stepList" style="display:grid;gap:9px"></div>
+    </div>
+
+    <div id="errorBox" style="display:none;background:#120404;border:1px solid #3d0808;border-radius:8px;padding:14px;margin-bottom:20px;color:#ef5350;font-size:12px;font-family:monospace"></div>
+    <div id="reportBox" style="display:none;animation:slideUp 0.4s ease"></div>
+
+    <div id="emptyState" style="text-align:center;padding:60px 0;color:#1a1a1a">
+      <div style="font-size:44px;margin-bottom:16px">◈</div>
+      <div style="font-size:11px;color:#252525;letter-spacing:1px;line-height:2.2;font-family:monospace">
+        §1 키워드 수요 분석 (실제 앱 수·경쟁강도)<br />
+        §2 경쟁 환경 분석 (실제 앱 데이터)<br />
+        §3 무료 핵심 리포트 생성<br />
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CATEGORIES = [
+      { id: "health", label: "헬스/웰니스", icon: "♥", kw: "건강 관리 앱" },
+      { id: "finance", label: "금융/핀테크", icon: "₩", kw: "가계부 앱" },
+      { id: "productivity", label: "생산성", icon: "⚡", kw: "할 일 관리 앱" },
+      { id: "education", label: "교육/EdTech", icon: "◈", kw: "영어 공부 앱" },
+      { id: "lifestyle", label: "라이프스타일", icon: "✦", kw: "다이어트 앱" },
+      { id: "entertainment", label: "엔터테인먼트", icon: "▶", kw: "동영상 편집 앱" },
+      { id: "business", label: "B2B/SaaS", icon: "◆", kw: "업무 관리 앱" },
+      { id: "social", label: "소셜/커뮤니티", icon: "◎", kw: "커뮤니티 앱" }
+    ];
+
+    const STEPS = [
+      { label: "Google Play 데이터 수집", icon: "🔍" },
+      { label: "핵심 지표 계산", icon: "📊" },
+      { label: "리포트 생성 완료", icon: "✅" }
+    ];
+
+    let selectedCat = null;
+
+    const catContainer = document.getElementById("catBtns");
+    CATEGORIES.forEach((cat) => {
+      const btn = document.createElement("button");
+      btn.className = "cat-btn";
+      btn.textContent = `${cat.icon} ${cat.label}`;
+      btn.onclick = () => {
+        selectedCat = selectedCat === cat.id ? null : cat.id;
+        document.querySelectorAll(".cat-btn").forEach((b) => {
+          b.style.background = "transparent";
+          b.style.borderColor = "#222";
+          b.style.color = "#555";
+        });
+        if (selectedCat) {
+          btn.style.background = "#1a1200";
+          btn.style.borderColor = "#f0a500";
+          btn.style.color = "#f0a500";
+        }
+      };
+      catContainer.appendChild(btn);
+    });
+
+    function renderSteps(statuses) {
+      const box = document.getElementById("stepList");
+      box.innerHTML = STEPS.map((step, i) => {
+        const st = statuses[i] || "wait";
+        const color = st === "done" ? "#66bb6a" : st === "run" ? "#f0a500" : "#2a2a2a";
+        const icon = st === "done" ? "✓" : st === "run" ? "◌" : "○";
+        const anim = st === "run" ? "animation:pulse 0.8s infinite" : "";
+        const badge = st === "done"
+          ? '<span class="tag" style="background:#0a1a0a;border:1px solid #1a3a1a;color:#66bb6a">완료</span>'
+          : st === "run"
+          ? '<span class="tag" style="background:#1a1200;border:1px solid #3a2a00;color:#f0a500">진행 중...</span>'
+          : "";
+        return `<div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:13px;color:${color};font-family:monospace;width:16px;${anim}">${icon}</span>
+          <span style="font-size:12px;color:${st === "wait" ? "#444" : color}">${step.icon} ${step.label}</span>
+          ${badge}
+        </div>`;
+      }).join("");
+    }
+
+    function tag(text, color, bg) {
+      return `<span class="tag" style="color:${color};background:${bg};border:1px solid ${color}30">${text}</span>`;
+    }
+
+    function renderFreeMetricsReport(keyword, metrics) {
+      const score = Number(metrics.averageRating || 0);
+      const verdict = score >= 4.3
+        ? { l: "GO ✓", c: "#66bb6a", b: "#0a1a0a" }
+        : score >= 4.0
+        ? { l: "CAUTION △", c: "#f0a500", b: "#1a1200" }
+        : { l: "WATCH ✗", c: "#ef5350", b: "#1a0505" };
+
+      const cards = [
+        ["평균 평점", metrics.averageRating],
+        ["상위 경쟁앱 수", `${metrics.competitorCount}개`],
+        ["부정리뷰 비율", metrics.negativeReviewRate],
+        ["IAP 비율", metrics.iapRatio],
+        ["광고 비율", metrics.adSupportedRatio],
+        ["상위앱 총 추정 월수익", metrics.estimatedMonthlyRevenueTotalRange || "-"]
+      ].map(([label, value]) => `
+        <div class="card">
+          <div style="font-size:9px;color:#444;margin-bottom:4px">${label}</div>
+          <div style="font-size:18px;font-weight:800;color:#f0a500;font-family:monospace">${value}</div>
+        </div>
+      `).join("");
+
+      const rows = (metrics.topCompetitors || []).map((app, idx) => `
+        <tr>
+          <td style="color:#555;font-family:monospace">${idx + 1}</td>
+          <td style="color:#ddd">${app.title || "-"}</td>
+          <td>${app.developer || "-"}</td>
+          <td style="color:#66bb6a">${app.score ?? "-"}</td>
+          <td>${app.installs || "-"}</td>
+          <td>${app.negativeReviewRate || "0.00%"}</td>
+          <td>${app.offersIAP ? "있음" : "없음"}</td>
+          <td>${app.adSupported ? "있음" : "없음"}</td>
+          <td style="color:#f0a500">${app.estimatedRevenueRange || "-"}</td>
+        </tr>
+      `).join("");
+
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;padding:12px 16px;background:#0a1a0a;border:1px solid #1a3a1a;border-radius:8px;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:10px;color:#66bb6a;font-family:monospace;letter-spacing:2px">▶ FREE REPORT — GOOGLE PLAY 실제 데이터</div>
+            <div style="font-size:13px;font-weight:700;color:#fff;margin-top:3px">"${keyword}" 무료 분석 완료</div>
+          </div>
+          ${tag(`${verdict.l} 평점 ${metrics.averageRating}`, verdict.c, verdict.b)}
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:16px">${cards}</div>
+
+        <div class="card" style="padding-top:10px">
+          <div style="font-size:10px;color:#4fc3f7;font-family:monospace;letter-spacing:2px;margin-bottom:10px">▶ 상위 경쟁 앱 상세</div>
+          <div style="overflow-x:auto">
+            <table>
+              <thead>
+                <tr><th>#</th><th>앱명</th><th>개발사</th><th>평점</th><th>설치수</th><th>부정리뷰%</th><th>IAP</th><th>광고</th><th>추정 월수익</th></tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px;font-size:10px;color:#444;font-family:monospace">generatedAt: ${metrics.generatedAt || "-"}</div>
+        </div>
+      `;
+    }
+
+    async function startAnalyze() {
+      const keyword = document.getElementById("kwInput").value.trim() || CATEGORIES.find((c) => c.id === selectedCat)?.kw;
+      if (!keyword) {
+        alert("카테고리를 선택하거나 키워드를 입력하세요");
+        return;
+      }
+
+      document.getElementById("emptyState").style.display = "none";
+      document.getElementById("reportBox").style.display = "none";
+      document.getElementById("errorBox").style.display = "none";
+      document.getElementById("progressBox").style.display = "block";
+      document.getElementById("runBtn").disabled = true;
+
+      const steps = ["wait", "wait", "wait"];
+
+      try {
+        steps[0] = "run";
+        renderSteps(steps);
+
+        const response = await fetch(`/api/metrics?keyword=${encodeURIComponent(keyword)}&searchSize=30&detailSize=10`);
+        const payload = await response.json();
+
+        if (!response.ok || payload.error) {
+          throw new Error(payload.error || `요청 실패 (${response.status})`);
+        }
+
+        steps[0] = "done";
+        steps[1] = "run";
+        renderSteps(steps);
+
+        if (!payload.metrics) {
+          throw new Error("metrics 응답이 비어 있습니다");
+        }
+
+        steps[1] = "done";
+        steps[2] = "done";
+        renderSteps(steps);
+
+        document.getElementById("reportBox").innerHTML = renderFreeMetricsReport(keyword, payload.metrics);
+        document.getElementById("reportBox").style.display = "block";
+      } catch (err) {
+        document.getElementById("errorBox").textContent = `⚠ ${err.message}`;
+        document.getElementById("errorBox").style.display = "block";
+      } finally {
+        document.getElementById("runBtn").disabled = false;
+      }
+    }
+
+    document.getElementById("runBtn").addEventListener("click", startAnalyze);
+    document.getElementById("kwInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") startAnalyze();
+    });
+  </script>
 </body>
 </html>
