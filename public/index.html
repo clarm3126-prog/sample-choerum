@@ -155,6 +155,7 @@
       </div>
       <div class="row-mobile" style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" id="favBtn">☆ 즐겨찾기 추가</button>
+        <button class="btn" id="refreshBtn">⟳ 강제 재수집 OFF</button>
         <button class="btn" id="exportCsvBtn" disabled>CSV 내보내기</button>
       </div>
     </div>
@@ -171,6 +172,12 @@
       <div class="row-mobile" style="display:flex;gap:8px;margin-bottom:8px">
         <input id="compareInput" placeholder="예: 가계부, 할일 관리, 수면 앱" />
         <button class="btn" id="compareBtn">비교 분석</button>
+        <select id="compareSort" class="btn" style="min-width:170px">
+          <option value="revenue_p50_desc">정렬: P50 높은 순</option>
+          <option value="confidence_desc">정렬: 신뢰도 높은 순</option>
+          <option value="rating_desc">정렬: 평점 높은 순</option>
+          <option value="competitor_asc">정렬: 경쟁앱 적은 순</option>
+        </select>
       </div>
       <div id="compareBox" style="display:none"></div>
     </div>
@@ -215,8 +222,10 @@
 
     let selectedCat = null;
     let isAnalyzing = false;
+    let forceRefreshMode = false;
     let currentKeyword = "";
     let currentMetrics = null;
+    let currentCompareRows = [];
     let recentKeywords = loadList(LS_RECENT, 8);
     let favoriteKeywords = loadList(LS_FAVORITES, 12);
 
@@ -237,6 +246,17 @@
 
     function tag(text, color, bg) {
       return `<span class="tag" style="color:${color};background:${bg};border:1px solid ${color}30">${text}</span>`;
+    }
+
+    function parseKrwLabel(value) {
+      const num = Number(String(value || "").replace(/[^0-9.-]/g, ""));
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function createMetricBar(value, max, color) {
+      const safeMax = max > 0 ? max : 1;
+      const width = Math.max(2, Math.min(100, (value / safeMax) * 100));
+      return `<div style="height:8px;background:#121212;border:1px solid #1b1b1b;border-radius:999px;overflow:hidden"><div style="height:100%;width:${width}%;background:${color}"></div></div>`;
     }
 
     function setupCategories() {
@@ -286,6 +306,15 @@
       });
     }
 
+    function updateRefreshButton() {
+      const btn = document.getElementById("refreshBtn");
+      if (!btn) return;
+      btn.textContent = forceRefreshMode ? "⟳ 강제 재수집 ON" : "⟳ 강제 재수집 OFF";
+      btn.style.borderColor = forceRefreshMode ? "#f0a500" : "#222";
+      btn.style.color = forceRefreshMode ? "#f0a500" : "#aaa";
+      btn.style.background = forceRefreshMode ? "#1a1200" : "#0a0a0a";
+    }
+
     function renderSteps(statuses) {
       const box = document.getElementById("stepList");
       box.innerHTML = STEPS.map((step, i) => {
@@ -333,6 +362,88 @@
       return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px">${entries
         .map(([k, v]) => `<div style="background:#090909;border:1px solid #161616;border-radius:6px;padding:8px 10px"><div style="font-size:10px;color:#4fc3f7">${k}</div><div style="font-size:11px;color:#777">${v}</div></div>`)
         .join("")}</div>`;
+    }
+
+    function renderRevenueBandChart(metrics) {
+      const box = document.getElementById("revenueBandChart");
+      if (!box) return;
+      const p25 = parseKrwLabel(metrics.estimatedMonthlyRevenueTotalP25);
+      const p50 = parseKrwLabel(metrics.estimatedMonthlyRevenueTotalP50);
+      const p75 = parseKrwLabel(metrics.estimatedMonthlyRevenueTotalP75);
+      const max = Math.max(p25, p50, p75, 1);
+      box.innerHTML = `
+        <div style="display:grid;gap:8px">
+          <div><div style="font-size:11px;color:#777;margin-bottom:4px">P25 ${metrics.estimatedMonthlyRevenueTotalP25 || "-"}</div>${createMetricBar(p25, max, "#4fc3f7")}</div>
+          <div><div style="font-size:11px;color:#777;margin-bottom:4px">P50 ${metrics.estimatedMonthlyRevenueTotalP50 || "-"}</div>${createMetricBar(p50, max, "#66bb6a")}</div>
+          <div><div style="font-size:11px;color:#777;margin-bottom:4px">P75 ${metrics.estimatedMonthlyRevenueTotalP75 || "-"}</div>${createMetricBar(p75, max, "#f0a500")}</div>
+        </div>
+      `;
+    }
+
+    function renderCategoryMixChart(metrics) {
+      const box = document.getElementById("categoryMixChart");
+      if (!box) return;
+      const entries = Object.entries(metrics.revenueCategoryMix || {});
+      if (!entries.length) {
+        box.innerHTML = '<div style="font-size:11px;color:#555">카테고리 정보 없음</div>';
+        return;
+      }
+      const total = entries.reduce((sum, [, count]) => sum + Number(count || 0), 0) || 1;
+      box.innerHTML = entries.map(([name, count]) => {
+        const ratio = Math.round((Number(count || 0) / total) * 100);
+        return `<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:11px;color:#777;margin-bottom:4px"><span>${name}</span><span>${ratio}%</span></div>${createMetricBar(ratio, 100, "#ab47bc")}</div>`;
+      }).join("");
+    }
+
+    function sortCompareRows(rows, mode) {
+      const copied = [...rows];
+      const getNum = (value) => Number(value || 0);
+      if (mode === "confidence_desc") {
+        copied.sort((a, b) => getNum(b.revenueConfidenceScore) - getNum(a.revenueConfidenceScore));
+      } else if (mode === "rating_desc") {
+        copied.sort((a, b) => getNum(b.averageRating) - getNum(a.averageRating));
+      } else if (mode === "competitor_asc") {
+        copied.sort((a, b) => getNum(a.competitorCount) - getNum(b.competitorCount));
+      } else {
+        copied.sort((a, b) => parseKrwLabel(b.estimatedMonthlyRevenueTotalP50) - parseKrwLabel(a.estimatedMonthlyRevenueTotalP50));
+      }
+      return copied;
+    }
+
+    function renderCompareTable() {
+      const box = document.getElementById("compareBox");
+      if (!currentCompareRows.length) return;
+      const mode = document.getElementById("compareSort").value;
+      const rows = sortCompareRows(currentCompareRows, mode);
+      const maxP50 = Math.max(...rows.map((row) => parseKrwLabel(row.estimatedMonthlyRevenueTotalP50)), 1);
+      const body = rows.map((row) => `
+        <tr>
+          <td style="color:#ddd">${row.keyword}</td>
+          <td style="color:#66bb6a">${row.averageRating}</td>
+          <td>${row.competitorCount}</td>
+          <td>${row.negativeReviewRate}</td>
+          <td>${row.iapRatio}</td>
+          <td>${row.adSupportedRatio}</td>
+          <td style="color:#f0a500">
+            ${row.estimatedMonthlyRevenueTotalRange}
+            <div style="font-size:10px;color:#888;margin-top:4px">P50: ${row.estimatedMonthlyRevenueTotalP50 || "-"}</div>
+            <div style="margin-top:4px">${createMetricBar(parseKrwLabel(row.estimatedMonthlyRevenueTotalP50), maxP50, "#66bb6a")}</div>
+          </td>
+          <td>${row.revenueConfidenceScore || "-"} (${row.revenueConfidenceLabel || "-"})</td>
+          <td>${row.cacheStatus}</td>
+        </tr>
+      `).join("");
+
+      box.innerHTML = `
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr><th>키워드</th><th>평균평점</th><th>경쟁앱수</th><th>부정리뷰%</th><th>IAP%</th><th>광고%</th><th>총 추정 월수익</th><th>신뢰도</th><th>cache</th></tr>
+            </thead>
+            <tbody>${body}</tbody>
+          </table>
+        </div>
+      `;
     }
 
     function renderMetricsReport(keyword, metrics, meta = {}) {
@@ -401,6 +512,17 @@
           ${buildAssumptionRows(metrics)}
         </div>
 
+        <div class="card" style="margin-bottom:14px">
+          <div style="font-size:10px;color:#4fc3f7;font-family:monospace;letter-spacing:2px;margin-bottom:8px">▶ 추정 수익 밴드 차트 (P25/P50/P75)</div>
+          <div id="revenueBandChart"></div>
+          <div style="font-size:10px;color:#555;margin-top:8px">P50을 기준값으로, P25/P75는 하위/상위 분위 구간입니다.</div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <div style="font-size:10px;color:#4fc3f7;font-family:monospace;letter-spacing:2px;margin-bottom:8px">▶ 수익 모델 카테고리 믹스</div>
+          <div id="categoryMixChart"></div>
+        </div>
+
         <div class="card" style="padding-top:10px">
           <div style="font-size:10px;color:#4fc3f7;font-family:monospace;letter-spacing:2px;margin-bottom:10px">▶ 상위 경쟁 앱 상세</div>
           <div style="overflow-x:auto">
@@ -447,6 +569,7 @@
       document.getElementById("errorBox").style.display = "none";
       document.getElementById("progressBox").style.display = "block";
       document.getElementById("runBtn").disabled = true;
+      document.getElementById("refreshBtn").disabled = true;
 
       const steps = ["wait", "wait", "wait"];
 
@@ -454,7 +577,8 @@
         steps[0] = "run";
         renderSteps(steps);
 
-        const url = `${API_BASE_URL}/api/metrics?keyword=${encodeURIComponent(keyword)}&searchSize=30&detailSize=10`;
+        const refreshQuery = forceRefreshMode ? "&refresh=1" : "";
+        const url = `${API_BASE_URL}/api/metrics?keyword=${encodeURIComponent(keyword)}&searchSize=30&detailSize=10${refreshQuery}`;
         const response = await fetchWithRetry(url, { retries: 2, timeoutMs: 18000, retryDelayMs: 800 });
 
         const rawText = await response.text();
@@ -485,6 +609,8 @@
 
         document.getElementById("reportBox").innerHTML = renderMetricsReport(keyword, payload.metrics, payload.meta || {});
         document.getElementById("reportBox").style.display = "block";
+        renderRevenueBandChart(payload.metrics);
+        renderCategoryMixChart(payload.metrics);
         document.getElementById("exportCsvBtn").disabled = false;
       } catch (err) {
         document.getElementById("errorBox").textContent = `⚠ ${err.message}`;
@@ -492,6 +618,7 @@
       } finally {
         isAnalyzing = false;
         document.getElementById("runBtn").disabled = false;
+        document.getElementById("refreshBtn").disabled = false;
       }
     }
 
@@ -508,37 +635,15 @@
       box.innerHTML = '<div style="color:#666;font-size:12px">비교 데이터를 수집 중입니다...</div>';
 
       try {
-        const url = `${API_BASE_URL}/api/compare?keywords=${encodeURIComponent(list.join(","))}`;
+        const refreshQuery = forceRefreshMode ? "&refresh=1" : "";
+        const url = `${API_BASE_URL}/api/compare?keywords=${encodeURIComponent(list.join(","))}${refreshQuery}`;
         const response = await fetchWithRetry(url, { retries: 2, timeoutMs: 20000, retryDelayMs: 700 });
         const payload = await response.json();
         if (!response.ok || payload.error) {
           throw new Error(payload.error || `비교 실패 (${response.status})`);
         }
-
-        const rows = (payload.rows || []).map((row) => `
-          <tr>
-            <td style="color:#ddd">${row.keyword}</td>
-            <td style="color:#66bb6a">${row.averageRating}</td>
-            <td>${row.competitorCount}</td>
-            <td>${row.negativeReviewRate}</td>
-            <td>${row.iapRatio}</td>
-            <td>${row.adSupportedRatio}</td>
-            <td style="color:#f0a500">${row.estimatedMonthlyRevenueTotalRange}<div style="font-size:10px;color:#888;margin-top:4px">P50: ${row.estimatedMonthlyRevenueTotalP50 || "-"}</div></td>
-            <td>${row.revenueConfidenceScore || "-"} (${row.revenueConfidenceLabel || "-"})</td>
-            <td>${row.cacheStatus}</td>
-          </tr>
-        `).join("");
-
-        box.innerHTML = `
-          <div style="overflow-x:auto">
-            <table>
-              <thead>
-                <tr><th>키워드</th><th>평균평점</th><th>경쟁앱수</th><th>부정리뷰%</th><th>IAP%</th><th>광고%</th><th>총 추정 월수익</th><th>신뢰도</th><th>cache</th></tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        `;
+        currentCompareRows = payload.rows || [];
+        renderCompareTable();
       } catch (err) {
         box.innerHTML = `<div style="color:#ef5350;font-size:12px">⚠ ${err.message}</div>`;
       }
@@ -605,11 +710,19 @@
       if (!kw) return;
       addToFavorites(kw);
     });
+    document.getElementById("refreshBtn").addEventListener("click", () => {
+      forceRefreshMode = !forceRefreshMode;
+      updateRefreshButton();
+    });
     document.getElementById("compareBtn").addEventListener("click", compareKeywords);
+    document.getElementById("compareSort").addEventListener("change", () => {
+      if (currentCompareRows.length) renderCompareTable();
+    });
     document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
 
     setupCategories();
     renderKeywordLists();
+    updateRefreshButton();
     const suggestion = recentKeywords.slice(0, 3);
     if (suggestion.length >= 2) {
       document.getElementById("compareInput").value = suggestion.join(", ");

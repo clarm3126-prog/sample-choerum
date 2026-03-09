@@ -237,14 +237,18 @@ function readCachedMetrics(key) {
   return hit.data;
 }
 
-async function getMetricsWithCache(keyword, searchSize, detailSize) {
+async function getMetricsWithCache(keyword, searchSize, detailSize, options = {}) {
+  const forceRefresh = options.forceRefresh === true;
   const key = cacheKeyForMetrics(keyword, searchSize, detailSize);
-  const cached = readCachedMetrics(key);
-  if (cached) {
-    return { metrics: cached, cacheStatus: "hit" };
+
+  if (!forceRefresh) {
+    const cached = readCachedMetrics(key);
+    if (cached) {
+      return { metrics: cached, cacheStatus: "hit" };
+    }
   }
 
-  if (metricsInflight.has(key)) {
+  if (!forceRefresh && metricsInflight.has(key)) {
     const data = await metricsInflight.get(key);
     return { metrics: data, cacheStatus: "inflight" };
   }
@@ -260,7 +264,7 @@ async function getMetricsWithCache(keyword, searchSize, detailSize) {
 
   metricsInflight.set(key, pending);
   const metrics = await pending;
-  return { metrics, cacheStatus: "miss" };
+  return { metrics, cacheStatus: forceRefresh ? "refresh" : "miss" };
 }
 
 app.get("/api/search", async (req, res) => {
@@ -346,9 +350,10 @@ app.get("/api/metrics", async (req, res) => {
 
   const searchSize = Math.max(5, Math.min(50, toNumber(req.query.searchSize) || 20));
   const detailSize = Math.max(3, Math.min(20, toNumber(req.query.detailSize) || 10));
+  const forceRefresh = req.query.refresh === "1";
 
   try {
-    const result = await getMetricsWithCache(keyword, searchSize, detailSize);
+    const result = await getMetricsWithCache(keyword, searchSize, detailSize, { forceRefresh });
     res.setHeader("X-Cache", result.cacheStatus);
     return res.json({
       metrics: result.metrics,
@@ -377,10 +382,11 @@ app.get("/api/compare", async (req, res) => {
   const searchSize = Math.max(5, Math.min(30, toNumber(req.query.searchSize) || 15));
   const detailSize = Math.max(3, Math.min(10, toNumber(req.query.detailSize) || 6));
   const keywordConcurrency = Math.max(1, Math.min(3, toNumber(req.query.keywordConcurrency) || 2));
+  const forceRefresh = req.query.refresh === "1";
 
   try {
     const rows = await mapWithConcurrency(keywords, keywordConcurrency, async (keyword) => {
-      const result = await getMetricsWithCache(keyword, searchSize, detailSize);
+      const result = await getMetricsWithCache(keyword, searchSize, detailSize, { forceRefresh });
       const metrics = result.metrics;
       return {
         keyword,
