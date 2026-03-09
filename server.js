@@ -29,6 +29,10 @@ app.use((req, res, next) => {
 
   return next();
 });
+
+app.get("/healthz", (_req, res) => {
+  res.json({ ok: true, service: "appsourcer", timestamp: new Date().toISOString() });
+});
 function toNumber(value) {
   const num = Number(value);
   return Number.isFinite(num) ? num : 0;
