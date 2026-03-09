@@ -10,8 +10,45 @@ app.use(express.static(path.join(__dirname, "public")));
 const METRICS_CACHE_TTL_MS = Math.max(60_000, toNumber(process.env.METRICS_CACHE_TTL_MS) || 15 * 60 * 1000);
 const DETAIL_CONCURRENCY = Math.max(1, Math.min(10, toNumber(process.env.DETAIL_CONCURRENCY) || 4));
 const COMPARE_KEYWORD_LIMIT = 5;
+const CATEGORY_KEYWORD_CACHE_TTL_MS = Math.max(60_000, toNumber(process.env.CATEGORY_KEYWORD_CACHE_TTL_MS) || 30 * 60 * 1000);
 const metricsCache = new Map();
 const metricsInflight = new Map();
+const categoryKeywordCache = new Map();
+
+const CATEGORY_KEYWORD_SEEDS = {
+  health: {
+    searchTerm: "건강 관리 앱",
+    keywords: ["건강 관리 앱", "홈트레이닝 앱", "수면 관리 앱", "명상 앱", "식단 기록 앱", "만보기 앱"],
+  },
+  finance: {
+    searchTerm: "가계부 앱",
+    keywords: ["가계부 앱", "예산 관리 앱", "주식 투자 앱", "환율 계산기 앱", "가상자산 시세 앱", "소비 분석 앱"],
+  },
+  productivity: {
+    searchTerm: "할 일 관리 앱",
+    keywords: ["할 일 관리 앱", "노트 필기 앱", "캘린더 일정 앱", "집중 타이머 앱", "문서 스캔 앱", "루틴 관리 앱"],
+  },
+  education: {
+    searchTerm: "영어 공부 앱",
+    keywords: ["영어 공부 앱", "단어 암기 앱", "코딩 학습 앱", "수학 문제 풀이 앱", "유아 학습 앱", "토익 학습 앱"],
+  },
+  lifestyle: {
+    searchTerm: "다이어트 앱",
+    keywords: ["다이어트 앱", "레시피 앱", "패션 코디 앱", "집 꾸미기 앱", "반려동물 관리 앱", "운세 앱"],
+  },
+  entertainment: {
+    searchTerm: "동영상 편집 앱",
+    keywords: ["동영상 편집 앱", "음악 스트리밍 앱", "웹툰 앱", "짧은 영상 앱", "사진 보정 앱", "OTT 추천 앱"],
+  },
+  business: {
+    searchTerm: "업무 관리 앱",
+    keywords: ["업무 관리 앱", "재고 관리 앱", "전자결재 앱", "매출 분석 앱", "고객 관리 CRM 앱", "근태 관리 앱"],
+  },
+  social: {
+    searchTerm: "커뮤니티 앱",
+    keywords: ["커뮤니티 앱", "익명 게시판 앱", "동네 소통 앱", "관심사 모임 앱", "실시간 채팅 앱", "팬 커뮤니티 앱"],
+  },
+};
 
 const allowedOrigins = (process.env.CORS_ORIGINS || "")
   .split(",")
@@ -155,6 +192,86 @@ function normalizeKeyword(keyword) {
 
 function cacheKeyForMetrics(keyword, searchSize, detailSize) {
   return `${normalizeKeyword(keyword).toLowerCase()}|${searchSize}|${detailSize}`;
+}
+
+function normalizeCategoryId(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getCategorySeed(categoryId) {
+  return CATEGORY_KEYWORD_SEEDS[normalizeCategoryId(categoryId)] || null;
+}
+
+function defaultCategoryKeywords(categoryId, limit = 10) {
+  const seed = getCategorySeed(categoryId);
+  if (!seed) return [];
+  return [...new Set(seed.keywords.filter(Boolean))].slice(0, limit);
+}
+
+function readCategoryKeywordCache(categoryId) {
+  const key = normalizeCategoryId(categoryId);
+  const hit = categoryKeywordCache.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt < Date.now()) {
+    categoryKeywordCache.delete(key);
+    return null;
+  }
+  return hit.data;
+}
+
+function extractKeywordCandidatesFromTitle(title) {
+  return String(title || "")
+    .replace(/[()\[\]{}]/g, " ")
+    .split(/[|·:,+/\\\-]/g)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 2 && part.length <= 24)
+    .filter((part) => !/^(앱|무료|pro|premium|new|official)$/i.test(part))
+    .map((part) => part.replace(/\s+/g, " "));
+}
+
+async function buildCategoryKeywords(categoryId, limit = 10, forceRefresh = false) {
+  const normalized = normalizeCategoryId(categoryId);
+  const seed = getCategorySeed(normalized);
+  if (!seed) return { category: normalized, keywords: [], cacheStatus: "none", source: "seed" };
+
+  if (!forceRefresh) {
+    const cached = readCategoryKeywordCache(normalized);
+    if (cached) return { ...cached, cacheStatus: "hit" };
+  }
+
+  const fallback = defaultCategoryKeywords(normalized, limit);
+  try {
+    const searchResults = await gplay.search({
+      term: seed.searchTerm,
+      lang: "ko",
+      country: "kr",
+      num: 24,
+    });
+
+    const merged = [...fallback];
+    searchResults.forEach((appLike) => {
+      extractKeywordCandidatesFromTitle(appLike?.title).forEach((candidate) => merged.push(candidate));
+    });
+
+    const keywords = [...new Set(merged.map((v) => String(v).trim()).filter(Boolean))].slice(0, limit);
+    const data = {
+      category: normalized,
+      keywords,
+      source: "live",
+      generatedAt: new Date().toISOString(),
+    };
+    categoryKeywordCache.set(normalized, { data, expiresAt: Date.now() + CATEGORY_KEYWORD_CACHE_TTL_MS });
+    return { ...data, cacheStatus: forceRefresh ? "refresh" : "miss" };
+  } catch (_err) {
+    const data = {
+      category: normalized,
+      keywords: fallback,
+      source: "seed",
+      generatedAt: new Date().toISOString(),
+    };
+    categoryKeywordCache.set(normalized, { data, expiresAt: Date.now() + CATEGORY_KEYWORD_CACHE_TTL_MS });
+    return { ...data, cacheStatus: "fallback" };
+  }
 }
 
 async function mapWithConcurrency(items, concurrency, mapper) {
@@ -406,6 +523,29 @@ app.get("/api/compare", async (req, res) => {
     return res.json({
       generatedAt: new Date().toISOString(),
       rows,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/category-keywords", async (req, res) => {
+  const category = normalizeCategoryId(req.query.category);
+  if (!category) return res.status(400).json({ error: "category 필요" });
+
+  const limit = Math.max(3, Math.min(20, toNumber(req.query.limit) || 10));
+  const forceRefresh = req.query.refresh === "1";
+
+  const seedExists = !!getCategorySeed(category);
+  if (!seedExists) {
+    return res.status(404).json({ error: "지원하지 않는 category 입니다" });
+  }
+
+  try {
+    const payload = await buildCategoryKeywords(category, limit, forceRefresh);
+    return res.json({
+      ...payload,
+      ttlMs: CATEGORY_KEYWORD_CACHE_TTL_MS,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });

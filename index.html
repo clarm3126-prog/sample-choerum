@@ -150,6 +150,11 @@
       <div style="font-size:10px;color:#444;font-family:monospace;letter-spacing:2px;margin-bottom:10px">카테고리 선택</div>
       <div id="catBtns" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
       <div class="row-mobile" style="display:flex;gap:8px;margin-bottom:8px">
+        <select id="subcatSelect" class="btn" style="min-width:220px;flex:1" disabled>
+          <option value="">세부 종류를 보려면 카테고리를 선택하세요</option>
+        </select>
+      </div>
+      <div class="row-mobile" style="display:flex;gap:8px;margin-bottom:8px">
         <input id="kwInput" placeholder="키워드 직접 입력 (예: 생리주기, 수면 앱, 가계부...)" />
         <button class="btn btn-run" id="runBtn">분석 시작 ▶</button>
       </div>
@@ -210,14 +215,62 @@
       { label: "리포트 생성 완료", icon: "✅" }
     ];
     const CATEGORIES = [
-      { id: "health", label: "헬스/웰니스", icon: "♥", kw: "건강 관리 앱" },
-      { id: "finance", label: "금융/핀테크", icon: "₩", kw: "가계부 앱" },
-      { id: "productivity", label: "생산성", icon: "⚡", kw: "할 일 관리 앱" },
-      { id: "education", label: "교육/EdTech", icon: "◈", kw: "영어 공부 앱" },
-      { id: "lifestyle", label: "라이프스타일", icon: "✦", kw: "다이어트 앱" },
-      { id: "entertainment", label: "엔터테인먼트", icon: "▶", kw: "동영상 편집 앱" },
-      { id: "business", label: "B2B/SaaS", icon: "◆", kw: "업무 관리 앱" },
-      { id: "social", label: "소셜/커뮤니티", icon: "◎", kw: "커뮤니티 앱" }
+      {
+        id: "health",
+        label: "헬스/웰니스",
+        icon: "♥",
+        kw: "건강 관리 앱",
+        subKeywords: ["홈트레이닝 앱", "명상 앱", "수면 관리 앱", "식단 기록 앱", "만보기 앱"]
+      },
+      {
+        id: "finance",
+        label: "금융/핀테크",
+        icon: "₩",
+        kw: "가계부 앱",
+        subKeywords: ["가계부 앱", "주식 투자 앱", "예산 관리 앱", "환율 계산기 앱", "가상자산 시세 앱"]
+      },
+      {
+        id: "productivity",
+        label: "생산성",
+        icon: "⚡",
+        kw: "할 일 관리 앱",
+        subKeywords: ["할 일 관리 앱", "노트 필기 앱", "캘린더 일정 앱", "집중 타이머 앱", "문서 스캔 앱"]
+      },
+      {
+        id: "education",
+        label: "교육/EdTech",
+        icon: "◈",
+        kw: "영어 공부 앱",
+        subKeywords: ["영어 공부 앱", "단어 암기 앱", "코딩 학습 앱", "수학 문제 풀이 앱", "유아 학습 앱"]
+      },
+      {
+        id: "lifestyle",
+        label: "라이프스타일",
+        icon: "✦",
+        kw: "다이어트 앱",
+        subKeywords: ["다이어트 앱", "레시피 앱", "패션 코디 앱", "집 꾸미기 앱", "반려동물 관리 앱"]
+      },
+      {
+        id: "entertainment",
+        label: "엔터테인먼트",
+        icon: "▶",
+        kw: "동영상 편집 앱",
+        subKeywords: ["동영상 편집 앱", "음악 스트리밍 앱", "웹툰 앱", "짧은 영상 앱", "사진 보정 앱"]
+      },
+      {
+        id: "business",
+        label: "B2B/SaaS",
+        icon: "◆",
+        kw: "업무 관리 앱",
+        subKeywords: ["업무 관리 앱", "재고 관리 앱", "전자결재 앱", "매출 분석 앱", "고객 관리 CRM 앱"]
+      },
+      {
+        id: "social",
+        label: "소셜/커뮤니티",
+        icon: "◎",
+        kw: "커뮤니티 앱",
+        subKeywords: ["커뮤니티 앱", "익명 게시판 앱", "동네 소통 앱", "관심사 모임 앱", "실시간 채팅 앱"]
+      }
     ];
 
     let selectedCat = null;
@@ -228,6 +281,8 @@
     let currentCompareRows = [];
     let recentKeywords = loadList(LS_RECENT, 8);
     let favoriteKeywords = loadList(LS_FAVORITES, 12);
+    const categoryKeywordCache = new Map();
+    let subcatRequestToken = 0;
 
     function loadList(key, max) {
       try {
@@ -259,6 +314,74 @@
       return `<div style="height:8px;background:#121212;border:1px solid #1b1b1b;border-radius:999px;overflow:hidden"><div style="height:100%;width:${width}%;background:${color}"></div></div>`;
     }
 
+    function getSelectedCategory() {
+      return CATEGORIES.find((cat) => cat.id === selectedCat) || null;
+    }
+
+    function renderSubcategoryOptions(catId, keywordList = null) {
+      const select = document.getElementById("subcatSelect");
+      if (!select) return;
+
+      select.innerHTML = "";
+
+      if (!catId) {
+        select.disabled = true;
+        select.innerHTML = '<option value="">세부 종류를 보려면 카테고리를 선택하세요</option>';
+        return;
+      }
+
+      const cat = CATEGORIES.find((item) => item.id === catId);
+      if (!cat) {
+        select.disabled = true;
+        select.innerHTML = '<option value="">세부 종류를 불러올 수 없습니다</option>';
+        return;
+      }
+
+      const list = keywordList && keywordList.length
+        ? [...new Set(keywordList.map((v) => String(v).trim()).filter(Boolean))]
+        : [...new Set([cat.kw, ...(cat.subKeywords || [])].filter(Boolean))];
+      select.disabled = false;
+      select.innerHTML = [
+        ...list.map((keyword, idx) => `<option value="${keyword}">${idx === 0 ? `기본: ${keyword}` : keyword}</option>`)
+      ].join("");
+      select.value = list[0] || "";
+      document.getElementById("kwInput").value = select.value;
+    }
+
+    async function loadCategoryKeywords(catId, forceRefresh = false) {
+      const cat = CATEGORIES.find((item) => item.id === catId);
+      if (!cat) return;
+
+      const token = ++subcatRequestToken;
+      const select = document.getElementById("subcatSelect");
+      const fallback = [...new Set([cat.kw, ...(cat.subKeywords || [])].filter(Boolean))];
+
+      if (!forceRefresh && categoryKeywordCache.has(catId)) {
+        renderSubcategoryOptions(catId, categoryKeywordCache.get(catId));
+        return;
+      }
+
+      if (select) {
+        select.disabled = true;
+        select.innerHTML = '<option value="">추천 키워드 불러오는 중...</option>';
+      }
+      document.getElementById("kwInput").value = cat.kw;
+
+      try {
+        const url = `${API_BASE_URL}/api/category-keywords?category=${encodeURIComponent(catId)}&limit=10`;
+        const response = await fetchWithRetry(url, { retries: 1, timeoutMs: 12000, retryDelayMs: 500 });
+        const payload = await response.json();
+        const list = Array.isArray(payload?.keywords) && payload.keywords.length ? payload.keywords : fallback;
+        categoryKeywordCache.set(catId, list);
+
+        if (token !== subcatRequestToken || selectedCat !== catId) return;
+        renderSubcategoryOptions(catId, list);
+      } catch (_err) {
+        if (token !== subcatRequestToken || selectedCat !== catId) return;
+        renderSubcategoryOptions(catId, fallback);
+      }
+    }
+
     function setupCategories() {
       const catContainer = document.getElementById("catBtns");
       CATEGORIES.forEach((cat) => {
@@ -276,7 +399,10 @@
             btn.style.background = "#1a1200";
             btn.style.borderColor = "#f0a500";
             btn.style.color = "#f0a500";
-            document.getElementById("kwInput").value = cat.kw;
+            loadCategoryKeywords(selectedCat);
+          } else {
+            renderSubcategoryOptions(null);
+            document.getElementById("kwInput").value = "";
           }
         };
         catContainer.appendChild(btn);
@@ -556,7 +682,9 @@
     }
 
     async function startAnalyze() {
-      const keyword = (document.getElementById("kwInput").value.trim() || CATEGORIES.find((c) => c.id === selectedCat)?.kw || "").trim();
+      const selectedCategory = getSelectedCategory();
+      const subKeyword = (document.getElementById("subcatSelect")?.value || "").trim();
+      const keyword = (document.getElementById("kwInput").value.trim() || subKeyword || selectedCategory?.kw || "").trim();
       if (!keyword) {
         alert("카테고리를 선택하거나 키워드를 입력하세요");
         return;
@@ -718,9 +846,16 @@
     document.getElementById("compareSort").addEventListener("change", () => {
       if (currentCompareRows.length) renderCompareTable();
     });
+    document.getElementById("subcatSelect").addEventListener("change", (event) => {
+      const value = event.target.value || "";
+      if (value) {
+        document.getElementById("kwInput").value = value;
+      }
+    });
     document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
 
     setupCategories();
+    renderSubcategoryOptions(null);
     renderKeywordLists();
     updateRefreshButton();
     const suggestion = recentKeywords.slice(0, 3);
