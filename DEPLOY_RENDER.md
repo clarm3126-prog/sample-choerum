@@ -6,14 +6,14 @@
 4. Confirm `render.yaml` is detected.
 5. Set environment variables:
    - `ANTHROPIC_API_KEY`
-   - `CORS_ORIGINS` (your frontend URL, comma-separated for multiple)
+   - `CORS_ORIGINS` is prefilled as `https://sample-choerum.pages.dev` in `render.yaml`
 6. Deploy.
 
 After deploy:
 - Health check: `https://<your-render-service>.onrender.com/healthz`
 - Metrics API: `https://<your-render-service>.onrender.com/api/metrics?keyword=가계부`
 
-For static frontend, set in `index.html` and `public/index.html`:
+For static frontend, `index.html` and `public/index.html` are already set to:
 ```html
-<meta name="app-api-base-url" content="https://<your-render-service>.onrender.com" />
+<meta name="app-api-base-url" content="https://appsourcer-backend.onrender.com" />
 ```
