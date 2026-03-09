@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="app-api-base-url" content="" />
   <title>AppSourcer - Google Play Real Data</title>
   <style>
     :root {
@@ -184,6 +185,7 @@
     ];
 
     let selectedCat = null;
+    const API_BASE_URL = (document.querySelector('meta[name="app-api-base-url"]')?.content || "").trim().replace(/\/$/, "");
 
     const catContainer = document.getElementById("catBtns");
     CATEGORIES.forEach((cat) => {
@@ -311,7 +313,11 @@
         steps[0] = "run";
         renderSteps(steps);
 
-        const response = await fetch(`/api/metrics?keyword=${encodeURIComponent(keyword)}&searchSize=30&detailSize=10`);
+        const response = await fetch(`${API_BASE_URL}/api/metrics?keyword=${encodeURIComponent(keyword)}&searchSize=30&detailSize=10`);
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("API가 JSON 대신 HTML을 반환했습니다. 정적 호스팅이면 meta app-api-base-url에 백엔드 주소를 설정하세요.");
+        }
         const payload = await response.json();
 
         if (!response.ok || payload.error) {
