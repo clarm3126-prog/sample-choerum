@@ -349,7 +349,9 @@
         ["부정리뷰 비율", metrics.negativeReviewRate, true],
         ["IAP 비율", metrics.iapRatio, true],
         ["광고 비율", metrics.adSupportedRatio, true],
-        ["상위앱 총 추정 월수익", metrics.estimatedMonthlyRevenueTotalRange || "-", false]
+        ["상위앱 총 추정 월수익(P50)", metrics.estimatedMonthlyRevenueTotalP50 || "-", false],
+        ["상위앱 총 추정 월수익(P25~P75)", `${metrics.estimatedMonthlyRevenueTotalP25 || "-"} ~ ${metrics.estimatedMonthlyRevenueTotalP75 || "-"}`, false],
+        ["수익 추정 신뢰도", `${metrics.revenueConfidenceScore || "-"} (${metrics.revenueConfidenceLabel || "-"})`, false]
       ].map(([label, value, isActual]) => `
         <div class="card">
           <div style="font-size:9px;color:#444;margin-bottom:4px;display:flex;justify-content:space-between;gap:6px">
@@ -370,7 +372,10 @@
           <td>${app.negativeReviewRate || "0.00%"}</td>
           <td>${app.offersIAP ? "있음" : "없음"}</td>
           <td>${app.adSupported ? "있음" : "없음"}</td>
-          <td style="color:#f0a500">${app.estimatedRevenueRange || "-"} ${tag("추정", "#f0a500", "#1a1200")}</td>
+          <td style="color:#f0a500">${app.estimatedRevenueRange || "-"} ${tag("추정", "#f0a500", "#1a1200")}
+            <div style="font-size:10px;color:#888;margin-top:4px">P50: ${app.estimatedRevenueP50 || "-"}</div>
+            <div style="font-size:10px;color:#888">신뢰도: ${app.revenueConfidenceScore || "-"} (${app.revenueConfidenceLabel || "-"})</div>
+          </td>
         </tr>
       `).join("");
 
@@ -518,7 +523,8 @@
             <td>${row.negativeReviewRate}</td>
             <td>${row.iapRatio}</td>
             <td>${row.adSupportedRatio}</td>
-            <td style="color:#f0a500">${row.estimatedMonthlyRevenueTotalRange}</td>
+            <td style="color:#f0a500">${row.estimatedMonthlyRevenueTotalRange}<div style="font-size:10px;color:#888;margin-top:4px">P50: ${row.estimatedMonthlyRevenueTotalP50 || "-"}</div></td>
+            <td>${row.revenueConfidenceScore || "-"} (${row.revenueConfidenceLabel || "-"})</td>
             <td>${row.cacheStatus}</td>
           </tr>
         `).join("");
@@ -527,7 +533,7 @@
           <div style="overflow-x:auto">
             <table>
               <thead>
-                <tr><th>키워드</th><th>평균평점</th><th>경쟁앱수</th><th>부정리뷰%</th><th>IAP%</th><th>광고%</th><th>총 추정 월수익</th><th>cache</th></tr>
+                <tr><th>키워드</th><th>평균평점</th><th>경쟁앱수</th><th>부정리뷰%</th><th>IAP%</th><th>광고%</th><th>총 추정 월수익</th><th>신뢰도</th><th>cache</th></tr>
               </thead>
               <tbody>${rows}</tbody>
             </table>
@@ -548,8 +554,13 @@
         ["iapRatio", currentMetrics.iapRatio],
         ["adSupportedRatio", currentMetrics.adSupportedRatio],
         ["estimatedMonthlyRevenueTotalRange", currentMetrics.estimatedMonthlyRevenueTotalRange],
+        ["estimatedMonthlyRevenueTotalP25", currentMetrics.estimatedMonthlyRevenueTotalP25],
+        ["estimatedMonthlyRevenueTotalP50", currentMetrics.estimatedMonthlyRevenueTotalP50],
+        ["estimatedMonthlyRevenueTotalP75", currentMetrics.estimatedMonthlyRevenueTotalP75],
+        ["revenueConfidenceScore", currentMetrics.revenueConfidenceScore],
+        ["revenueConfidenceLabel", currentMetrics.revenueConfidenceLabel],
         [],
-        ["rank", "title", "developer", "score", "installs", "negativeReviewRate", "offersIAP", "adSupported", "estimatedRevenueRange"]
+        ["rank", "title", "developer", "score", "installs", "negativeReviewRate", "offersIAP", "adSupported", "estimatedRevenueRange", "estimatedRevenueP50", "revenueConfidenceScore", "revenueConfidenceLabel", "revenueModelCategory"]
       ];
 
       (currentMetrics.topCompetitors || []).forEach((app, idx) => {
@@ -562,7 +573,11 @@
           app.negativeReviewRate || "",
           app.offersIAP ? "yes" : "no",
           app.adSupported ? "yes" : "no",
-          app.estimatedRevenueRange || ""
+          app.estimatedRevenueRange || "",
+          app.estimatedRevenueP50 || "",
+          app.revenueConfidenceScore || "",
+          app.revenueConfidenceLabel || "",
+          app.revenueModelCategory || ""
         ]);
       });
 

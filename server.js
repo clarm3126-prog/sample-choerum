@@ -48,6 +48,16 @@ function formatPercent(numerator, denominator) {
   return `${((numerator / denominator) * 100).toFixed(2)}%`;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function confidenceLabelFromScore(score) {
+  if (score >= 75) return "HIGH";
+  if (score >= 55) return "MEDIUM";
+  return "LOW";
+}
+
 function buildMarketMetrics(keyword, searchData, appDetails) {
   const apps = searchData?.apps || [];
   const details = appDetails || [];
@@ -67,14 +77,24 @@ function buildMarketMetrics(keyword, searchData, appDetails) {
   let negDenominator = 0;
   let revenueLowTotal = 0;
   let revenueHighTotal = 0;
+  let revenueP25Total = 0;
+  let revenueP50Total = 0;
+  let revenueP75Total = 0;
+  let confidenceSum = 0;
+  const categoryCounter = {};
 
   const topCompetitors = details.map((item) => {
     negNumerator += toNumber(item.histogram?.[1]) + toNumber(item.histogram?.[2]);
     negDenominator += toNumber(item.ratings);
 
-    const revenue = estimateMonthlyRevenue(item);
+    const revenue = estimateMonthlyRevenue(item, keyword);
     revenueLowTotal += revenue.low;
     revenueHighTotal += revenue.high;
+    revenueP25Total += revenue.p25;
+    revenueP50Total += revenue.p50;
+    revenueP75Total += revenue.p75;
+    confidenceSum += revenue.confidenceScore;
+    categoryCounter[revenue.category] = (categoryCounter[revenue.category] || 0) + 1;
 
     return {
       appId: item.appId,
@@ -88,7 +108,13 @@ function buildMarketMetrics(keyword, searchData, appDetails) {
       negativeReviewRate: item.neg_rate,
       estimatedRevenueLow: revenue.lowLabel,
       estimatedRevenueHigh: revenue.highLabel,
+      estimatedRevenueP25: revenue.p25Label,
+      estimatedRevenueP50: revenue.p50Label,
+      estimatedRevenueP75: revenue.p75Label,
       estimatedRevenueRange: revenue.rangeLabel,
+      revenueConfidenceScore: revenue.confidenceScore,
+      revenueConfidenceLabel: revenue.confidenceLabel,
+      revenueModelCategory: revenue.category,
     };
   });
 
@@ -96,7 +122,9 @@ function buildMarketMetrics(keyword, searchData, appDetails) {
     offers_iap: true,
     ad_supported: true,
     installs: "100000+",
-  }).assumptions;
+  }, keyword).assumptions;
+  const avgConfidence = withDetailCount > 0 ? confidenceSum / withDetailCount : 50;
+  const confidenceLabel = confidenceLabelFromScore(avgConfidence);
 
   return {
     keyword,
@@ -109,7 +137,13 @@ function buildMarketMetrics(keyword, searchData, appDetails) {
     adSupportedRatio: formatPercent(adCount, withDetailCount),
     estimatedMonthlyRevenueTotalLow: formatKRW(revenueLowTotal),
     estimatedMonthlyRevenueTotalHigh: formatKRW(revenueHighTotal),
+    estimatedMonthlyRevenueTotalP25: formatKRW(revenueP25Total),
+    estimatedMonthlyRevenueTotalP50: formatKRW(revenueP50Total),
+    estimatedMonthlyRevenueTotalP75: formatKRW(revenueP75Total),
     estimatedMonthlyRevenueTotalRange: `${formatKRW(revenueLowTotal)} ~ ${formatKRW(revenueHighTotal)}`,
+    revenueConfidenceScore: Number(avgConfidence.toFixed(1)),
+    revenueConfidenceLabel: confidenceLabel,
+    revenueCategoryMix: categoryCounter,
     revenueEstimateAssumptions: assumptions,
     topCompetitors,
   };
@@ -168,11 +202,13 @@ async function buildMetricsFromSource(keyword, searchSize, detailSize) {
         score: detail.score,
         ratings: detail.ratings,
         histogram: detail.histogram,
+        genre: detail.genre,
         installs: detail.installs,
         minInstalls: detail.minInstalls,
         maxInstalls: detail.maxInstalls,
         offers_iap: detail.offersIAP,
         ad_supported: detail.adSupported,
+        updated: detail.updated,
         neg_rate: formatPercent(toNumber(histogram[1]) + toNumber(histogram[2]), ratings),
       };
     } catch (_innerErr) {
@@ -354,6 +390,9 @@ app.get("/api/compare", async (req, res) => {
         iapRatio: metrics.iapRatio,
         adSupportedRatio: metrics.adSupportedRatio,
         estimatedMonthlyRevenueTotalRange: metrics.estimatedMonthlyRevenueTotalRange,
+        estimatedMonthlyRevenueTotalP50: metrics.estimatedMonthlyRevenueTotalP50,
+        revenueConfidenceScore: metrics.revenueConfidenceScore,
+        revenueConfidenceLabel: metrics.revenueConfidenceLabel,
         cacheStatus: result.cacheStatus,
       };
     });
@@ -529,7 +568,81 @@ app.listen(PORT, () => {
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 });
 
-function parseInstallsBounds(detail) {
+const CATEGORY_PROFILES = {
+  finance: {
+    label: "Finance",
+    installMaxMultiplier: 2.4,
+    activeUserRate: [0.03, 0.09],
+    iapConversionRate: [0.01, 0.028],
+    iapARPPU: [11000, 26000],
+    adImpressionsPerUser: [15, 45],
+    adECPM: [2200, 6500],
+    confidenceBase: 72,
+  },
+  productivity: {
+    label: "Productivity",
+    installMaxMultiplier: 2.6,
+    activeUserRate: [0.025, 0.085],
+    iapConversionRate: [0.009, 0.023],
+    iapARPPU: [9500, 22000],
+    adImpressionsPerUser: [18, 52],
+    adECPM: [1900, 5600],
+    confidenceBase: 68,
+  },
+  health: {
+    label: "Health/Wellness",
+    installMaxMultiplier: 2.8,
+    activeUserRate: [0.02, 0.075],
+    iapConversionRate: [0.008, 0.02],
+    iapARPPU: [9000, 21000],
+    adImpressionsPerUser: [20, 60],
+    adECPM: [1800, 5200],
+    confidenceBase: 64,
+  },
+  education: {
+    label: "Education",
+    installMaxMultiplier: 2.7,
+    activeUserRate: [0.02, 0.08],
+    iapConversionRate: [0.007, 0.02],
+    iapARPPU: [8500, 20000],
+    adImpressionsPerUser: [20, 55],
+    adECPM: [1800, 5000],
+    confidenceBase: 62,
+  },
+  entertainment: {
+    label: "Entertainment",
+    installMaxMultiplier: 3.1,
+    activeUserRate: [0.018, 0.07],
+    iapConversionRate: [0.006, 0.018],
+    iapARPPU: [8000, 18000],
+    adImpressionsPerUser: [30, 90],
+    adECPM: [1600, 4600],
+    confidenceBase: 58,
+  },
+  general: {
+    label: "General",
+    installMaxMultiplier: 2.7,
+    activeUserRate: [0.02, 0.08],
+    iapConversionRate: [0.008, 0.025],
+    iapARPPU: [9000, 23000],
+    adImpressionsPerUser: [20, 60],
+    adECPM: [2000, 6000],
+    confidenceBase: 60,
+  },
+};
+
+function inferRevenueCategory(detailLike, keyword) {
+  const source = `${detailLike?.genre || ""} ${detailLike?.title || ""} ${keyword || ""}`.toLowerCase();
+
+  if (/(가계부|금융|핀테크|투자|budget|money|finance|bank|expense)/.test(source)) return "finance";
+  if (/(할 일|todo|생산성|업무|메모|calendar|task|productivity|saas)/.test(source)) return "productivity";
+  if (/(건강|헬스|수면|다이어트|wellness|health|fitness|meditation)/.test(source)) return "health";
+  if (/(교육|공부|학습|영어|education|learning|edtech)/.test(source)) return "education";
+  if (/(엔터|동영상|music|video|game|entertainment|stream)/.test(source)) return "entertainment";
+  return "general";
+}
+
+function parseInstallsBounds(detail, profile) {
   const directMin = toNumber(detail?.minInstalls);
   const directMax = toNumber(detail?.maxInstalls);
   if (directMin > 0 && directMax >= directMin) {
@@ -539,7 +652,8 @@ function parseInstallsBounds(detail) {
   const raw = String(detail?.installs || "");
   const num = toNumber(raw.replace(/[^0-9]/g, ""));
   if (num > 0) {
-    return { min: num, max: Math.max(num, Math.floor(num * 3)) };
+    const multiplier = profile?.installMaxMultiplier || 2.7;
+    return { min: num, max: Math.max(num, Math.floor(num * multiplier)) };
   }
 
   return { min: 0, max: 0 };
@@ -549,40 +663,92 @@ function formatKRW(value) {
   return `KRW ${Math.round(value).toLocaleString("en-US")}`;
 }
 
-function estimateMonthlyRevenue(detailLike) {
-  const installs = parseInstallsBounds(detailLike);
-  const minActive = installs.min * 0.02;
-  const maxActive = installs.max * 0.08;
+function toPercentNumber(value) {
+  if (typeof value === "string") {
+    return toNumber(value.replace("%", ""));
+  }
+  return toNumber(value);
+}
+
+function computeQualityConfidence(detailLike) {
+  const rating = clamp(toNumber(detailLike?.score), 0, 5);
+  const ratingScore = clamp((rating - 3.4) / 1.6, 0, 1);
+
+  const ratingsCount = Math.max(0, toNumber(detailLike?.ratings));
+  const volumeScore = clamp(Math.log10(ratingsCount + 1) / 6, 0, 1);
+
+  const negRate = toPercentNumber(detailLike?.neg_rate);
+  const negScore = clamp(1 - negRate / 18, 0, 1);
+
+  const updatedAt = new Date(detailLike?.updated || 0);
+  const daysSinceUpdate = Number.isFinite(updatedAt.getTime())
+    ? (Date.now() - updatedAt.getTime()) / (1000 * 60 * 60 * 24)
+    : 365;
+  const freshnessScore = clamp(1 - daysSinceUpdate / 540, 0, 1);
+
+  return clamp((ratingScore * 0.33) + (volumeScore * 0.24) + (negScore * 0.28) + (freshnessScore * 0.15), 0, 1);
+}
+
+function interpolate(low, high, ratio) {
+  return low + ((high - low) * ratio);
+}
+
+function estimateMonthlyRevenue(detailLike, keyword = "") {
+  const category = inferRevenueCategory(detailLike, keyword);
+  const profile = CATEGORY_PROFILES[category] || CATEGORY_PROFILES.general;
+  const installs = parseInstallsBounds(detailLike, profile);
+  const qualityConfidence = computeQualityConfidence(detailLike);
+  const usageBias = 0.85 + (qualityConfidence * 0.3);
+
+  const minActive = installs.min * profile.activeUserRate[0] * usageBias;
+  const maxActive = installs.max * profile.activeUserRate[1] * usageBias;
 
   let low = 0;
   let high = 0;
 
   if (detailLike?.offers_iap) {
-    const lowPaidUsers = minActive * 0.008;
-    const highPaidUsers = maxActive * 0.025;
-    low += lowPaidUsers * 9000;
-    high += highPaidUsers * 23000;
+    const lowPaidUsers = minActive * profile.iapConversionRate[0];
+    const highPaidUsers = maxActive * profile.iapConversionRate[1];
+    low += lowPaidUsers * profile.iapARPPU[0];
+    high += highPaidUsers * profile.iapARPPU[1];
   }
 
   if (detailLike?.ad_supported) {
-    const lowImpressions = minActive * 20;
-    const highImpressions = maxActive * 60;
-    low += (lowImpressions / 1000) * 2000;
-    high += (highImpressions / 1000) * 6000;
+    const lowImpressions = minActive * profile.adImpressionsPerUser[0];
+    const highImpressions = maxActive * profile.adImpressionsPerUser[1];
+    low += (lowImpressions / 1000) * profile.adECPM[0];
+    high += (highImpressions / 1000) * profile.adECPM[1];
   }
 
+  const p25 = interpolate(low, high, 0.25);
+  const p50 = interpolate(low, high, 0.5);
+  const p75 = interpolate(low, high, 0.75);
+  const confidenceScore = clamp((profile.confidenceBase * 0.55) + (qualityConfidence * 100 * 0.45), 35, 95);
+  const confidenceLabel = confidenceLabelFromScore(confidenceScore);
+
   return {
+    category,
     low,
     high,
+    p25,
+    p50,
+    p75,
+    confidenceScore: Number(confidenceScore.toFixed(1)),
+    confidenceLabel,
     lowLabel: formatKRW(low),
     highLabel: formatKRW(high),
+    p25Label: formatKRW(p25),
+    p50Label: formatKRW(p50),
+    p75Label: formatKRW(p75),
     rangeLabel: `${formatKRW(low)} ~ ${formatKRW(high)}`,
     assumptions: {
-      activeUserRate: "2% ~ 8% of installs",
-      iapConversionRate: "0.8% ~ 2.5%",
-      iapARPPU: "KRW 9,000 ~ 23,000/month",
-      adImpressionsPerUser: "20 ~ 60 per month",
-      adECPM: "KRW 2,000 ~ 6,000",
+      revenueCategory: profile.label,
+      activeUserRate: `${(profile.activeUserRate[0] * 100).toFixed(1)}% ~ ${(profile.activeUserRate[1] * 100).toFixed(1)}%`,
+      iapConversionRate: `${(profile.iapConversionRate[0] * 100).toFixed(1)}% ~ ${(profile.iapConversionRate[1] * 100).toFixed(1)}%`,
+      iapARPPU: `KRW ${profile.iapARPPU[0].toLocaleString("en-US")} ~ ${profile.iapARPPU[1].toLocaleString("en-US")}/month`,
+      adImpressionsPerUser: `${profile.adImpressionsPerUser[0]} ~ ${profile.adImpressionsPerUser[1]} per month`,
+      adECPM: `KRW ${profile.adECPM[0].toLocaleString("en-US")} ~ ${profile.adECPM[1].toLocaleString("en-US")}`,
+      confidenceScore: `${Number(confidenceScore.toFixed(1))} (${confidenceLabel})`,
     },
   };
 }
