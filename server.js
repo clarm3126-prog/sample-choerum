@@ -7,6 +7,11 @@ const Anthropic = require("@anthropic-ai/sdk");
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+const METRICS_CACHE_TTL_MS = Math.max(60_000, toNumber(process.env.METRICS_CACHE_TTL_MS) || 15 * 60 * 1000);
+const DETAIL_CONCURRENCY = Math.max(1, Math.min(10, toNumber(process.env.DETAIL_CONCURRENCY) || 4));
+const COMPARE_KEYWORD_LIMIT = 5;
+const metricsCache = new Map();
+const metricsInflight = new Map();
 
 const allowedOrigins = (process.env.CORS_ORIGINS || "")
   .split(",")
@@ -110,6 +115,118 @@ function buildMarketMetrics(keyword, searchData, appDetails) {
   };
 }
 
+function normalizeKeyword(keyword) {
+  return String(keyword || "").trim();
+}
+
+function cacheKeyForMetrics(keyword, searchSize, detailSize) {
+  return `${normalizeKeyword(keyword).toLowerCase()}|${searchSize}|${detailSize}`;
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const results = new Array(items.length);
+  let index = 0;
+
+  async function worker() {
+    while (true) {
+      const current = index;
+      index += 1;
+      if (current >= items.length) return;
+      results[current] = await mapper(items[current], current);
+    }
+  }
+
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return results;
+}
+
+async function buildMetricsFromSource(keyword, searchSize, detailSize) {
+  const searchResults = await gplay.search({
+    term: keyword,
+    num: searchSize,
+    lang: "ko",
+    country: "kr",
+    fullDetail: false,
+  });
+
+  const topApps = (searchResults || []).slice(0, detailSize);
+  const detailResults = await mapWithConcurrency(topApps, DETAIL_CONCURRENCY, async (appInfo) => {
+    try {
+      const detail = await gplay.app({
+        appId: appInfo.appId,
+        lang: "ko",
+        country: "kr",
+      });
+
+      const histogram = detail.histogram || {};
+      const ratings = toNumber(detail.ratings);
+      return {
+        appId: detail.appId,
+        title: detail.title,
+        developer: detail.developer,
+        score: detail.score,
+        ratings: detail.ratings,
+        histogram: detail.histogram,
+        installs: detail.installs,
+        minInstalls: detail.minInstalls,
+        maxInstalls: detail.maxInstalls,
+        offers_iap: detail.offersIAP,
+        ad_supported: detail.adSupported,
+        neg_rate: formatPercent(toNumber(histogram[1]) + toNumber(histogram[2]), ratings),
+      };
+    } catch (_innerErr) {
+      return null;
+    }
+  });
+
+  const appDetails = detailResults.filter(Boolean);
+  const searchData = {
+    apps: (searchResults || []).map((item) => ({
+      appId: item.appId,
+      score: item.score,
+    })),
+  };
+
+  return buildMarketMetrics(keyword, searchData, appDetails);
+}
+
+function readCachedMetrics(key) {
+  const hit = metricsCache.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt < Date.now()) {
+    metricsCache.delete(key);
+    return null;
+  }
+  return hit.data;
+}
+
+async function getMetricsWithCache(keyword, searchSize, detailSize) {
+  const key = cacheKeyForMetrics(keyword, searchSize, detailSize);
+  const cached = readCachedMetrics(key);
+  if (cached) {
+    return { metrics: cached, cacheStatus: "hit" };
+  }
+
+  if (metricsInflight.has(key)) {
+    const data = await metricsInflight.get(key);
+    return { metrics: data, cacheStatus: "inflight" };
+  }
+
+  const pending = buildMetricsFromSource(keyword, searchSize, detailSize)
+    .then((data) => {
+      metricsCache.set(key, { data, expiresAt: Date.now() + METRICS_CACHE_TTL_MS });
+      return data;
+    })
+    .finally(() => {
+      metricsInflight.delete(key);
+    });
+
+  metricsInflight.set(key, pending);
+  const metrics = await pending;
+  return { metrics, cacheStatus: "miss" };
+}
+
 app.get("/api/search", async (req, res) => {
   const { keyword } = req.query;
   if (!keyword) return res.status(400).json({ error: "keyword 필요" });
@@ -188,61 +305,63 @@ app.get("/api/app", async (req, res) => {
 });
 
 app.get("/api/metrics", async (req, res) => {
-  const { keyword } = req.query;
+  const keyword = normalizeKeyword(req.query.keyword);
   if (!keyword) return res.status(400).json({ error: "keyword 필요" });
 
   const searchSize = Math.max(5, Math.min(50, toNumber(req.query.searchSize) || 20));
   const detailSize = Math.max(3, Math.min(20, toNumber(req.query.detailSize) || 10));
 
   try {
-    const searchResults = await gplay.search({
-      term: keyword,
-      num: searchSize,
-      lang: "ko",
-      country: "kr",
-      fullDetail: false,
+    const result = await getMetricsWithCache(keyword, searchSize, detailSize);
+    res.setHeader("X-Cache", result.cacheStatus);
+    return res.json({
+      metrics: result.metrics,
+      meta: {
+        cacheStatus: result.cacheStatus,
+        ttlMs: METRICS_CACHE_TTL_MS,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/compare", async (req, res) => {
+  const raw = String(req.query.keywords || "");
+  const keywords = raw
+    .split(",")
+    .map((value) => normalizeKeyword(value))
+    .filter(Boolean)
+    .slice(0, COMPARE_KEYWORD_LIMIT);
+
+  if (keywords.length < 2) {
+    return res.status(400).json({ error: "비교를 위해 키워드 2개 이상이 필요합니다" });
+  }
+
+  const searchSize = Math.max(5, Math.min(30, toNumber(req.query.searchSize) || 15));
+  const detailSize = Math.max(3, Math.min(10, toNumber(req.query.detailSize) || 6));
+  const keywordConcurrency = Math.max(1, Math.min(3, toNumber(req.query.keywordConcurrency) || 2));
+
+  try {
+    const rows = await mapWithConcurrency(keywords, keywordConcurrency, async (keyword) => {
+      const result = await getMetricsWithCache(keyword, searchSize, detailSize);
+      const metrics = result.metrics;
+      return {
+        keyword,
+        averageRating: metrics.averageRating,
+        competitorCount: metrics.competitorCount,
+        negativeReviewRate: metrics.negativeReviewRate,
+        iapRatio: metrics.iapRatio,
+        adSupportedRatio: metrics.adSupportedRatio,
+        estimatedMonthlyRevenueTotalRange: metrics.estimatedMonthlyRevenueTotalRange,
+        cacheStatus: result.cacheStatus,
+      };
     });
 
-    const topApps = (searchResults || []).slice(0, detailSize);
-    const appDetails = [];
-
-    for (const appInfo of topApps) {
-      try {
-        const detail = await gplay.app({
-          appId: appInfo.appId,
-          lang: "ko",
-          country: "kr",
-        });
-
-        const histogram = detail.histogram || {};
-        const ratings = toNumber(detail.ratings);
-        appDetails.push({
-          appId: detail.appId,
-          title: detail.title,
-          developer: detail.developer,
-          score: detail.score,
-          ratings: detail.ratings,
-          histogram: detail.histogram,
-          installs: detail.installs,
-          minInstalls: detail.minInstalls,
-          maxInstalls: detail.maxInstalls,
-          offers_iap: detail.offersIAP,
-          ad_supported: detail.adSupported,
-          neg_rate: formatPercent(toNumber(histogram[1]) + toNumber(histogram[2]), ratings),
-        });
-      } catch (_innerErr) {
-        // 일부 앱 실패는 무시
-      }
-    }
-
-    const searchData = {
-      apps: (searchResults || []).map((item) => ({
-        appId: item.appId,
-        score: item.score,
-      })),
-    };
-
-    return res.json({ metrics: buildMarketMetrics(keyword, searchData, appDetails) });
+    return res.json({
+      generatedAt: new Date().toISOString(),
+      rows,
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

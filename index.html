@@ -10,74 +10,87 @@
       --bg: #060606;
       --panel: #0d0d0d;
       --line: #1a1a1a;
-      --muted: #666;
       --text: #ddd;
+      --muted: #666;
       --accent: #f0a500;
       --ok: #66bb6a;
-      --warn: #f0a500;
       --bad: #ef5350;
       --info: #4fc3f7;
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       background: var(--bg);
       color: var(--text);
       font-family: "Pretendard", "Noto Sans KR", sans-serif;
     }
-
-    input, button {
-      font: inherit;
-      border-radius: 6px;
-      border: 1px solid #222;
-      background: #0a0a0a;
-      color: #ddd;
-      padding: 10px 12px;
-    }
-
-    input { flex: 1; min-width: 220px; }
-    input::placeholder { color: #555; }
-
-    button { cursor: pointer; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .cat-btn {
-      background: transparent;
-      border: 1px solid #222;
-      color: #555;
-      padding: 7px 10px;
-      font-size: 12px;
-    }
-
-    .run-btn {
-      background: #1a1200;
-      border-color: #3a2a00;
-      color: #f0a500;
-      font-weight: 700;
-    }
-
     .tag {
       font-size: 10px;
       padding: 3px 8px;
       border-radius: 100px;
       white-space: nowrap;
     }
-
     .card {
       background: #0d0d0d;
       border: 1px solid #1e1e1e;
       border-radius: 8px;
       padding: 12px;
     }
-
+    .btn {
+      font: inherit;
+      border-radius: 6px;
+      border: 1px solid #222;
+      background: #0a0a0a;
+      color: #ddd;
+      padding: 9px 12px;
+      cursor: pointer;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-run {
+      background: #1a1200;
+      border-color: #3a2a00;
+      color: #f0a500;
+      font-weight: 700;
+    }
+    .chip {
+      border: 1px solid #242424;
+      background: #0b0b0b;
+      color: #aaa;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .chip.fav {
+      border-color: #2b3f1f;
+      color: #9ccc65;
+      background: #10160b;
+    }
+    .cat-btn {
+      background: transparent;
+      border: 1px solid #222;
+      color: #555;
+      padding: 7px 10px;
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    input {
+      font: inherit;
+      border-radius: 6px;
+      border: 1px solid #222;
+      background: #0a0a0a;
+      color: #ddd;
+      padding: 10px 12px;
+      min-width: 220px;
+      flex: 1;
+    }
+    input::placeholder { color: #555; }
     table {
       width: 100%;
+      min-width: 860px;
       border-collapse: collapse;
-      min-width: 760px;
     }
-
     th, td {
       border-bottom: 1px solid #1a1a1a;
       padding: 9px 8px;
@@ -86,7 +99,6 @@
       color: #777;
       vertical-align: top;
     }
-
     th {
       color: #aaa;
       font-size: 11px;
@@ -94,22 +106,19 @@
       position: sticky;
       top: 0;
     }
-
     @keyframes pulse {
       0% { opacity: 0.4; }
       50% { opacity: 1; }
       100% { opacity: 0.4; }
     }
-
     @keyframes slideUp {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
-
     @media (max-width: 768px) {
       #headerTags { display: none; }
-      #inputRow { flex-direction: column; }
-      #inputRow button { width: 100%; }
+      .row-mobile { flex-direction: column; }
+      .row-mobile > * { width: 100%; }
     }
   </style>
 </head>
@@ -128,45 +137,71 @@
     </div>
   </div>
 
-  <div style="max-width:940px;margin:0 auto;padding:28px 20px">
-    <div style="margin-bottom:28px;animation:slideUp 0.4s ease">
+  <div style="max-width:980px;margin:0 auto;padding:28px 20px">
+    <div style="margin-bottom:20px;animation:slideUp 0.4s ease">
       <div style="font-size:10px;color:#f0a500;letter-spacing:3px;font-family:monospace;margin-bottom:8px">▶ GOOGLE PLAY 실제 데이터 기반 앱 소싱</div>
       <h1 style="font-size:clamp(22px,4vw,38px);font-weight:900;margin:0 0 6px;line-height:1.1;letter-spacing:-1px;background:linear-gradient(135deg,#fff 50%,#333);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
         키워드 → 실제 앱 데이터<br />→ AI 분석 리포트
       </h1>
-      <p style="color:#444;font-size:13px">google-play-scraper로 실제 앱 데이터를 수집하고, 무료 핵심 지표 리포트를 생성합니다</p>
+      <p style="color:#444;font-size:13px">신뢰도 라벨(실제/추정), 재시도 가능한 수집, 키워드 비교와 CSV 내보내기를 제공합니다.</p>
     </div>
 
-    <div style="background:#0d0d0d;border:1px solid #1a1a1a;border-radius:10px;padding:18px 20px;margin-bottom:24px">
-      <div style="margin-bottom:14px">
-        <div style="font-size:10px;color:#444;font-family:monospace;letter-spacing:2px;margin-bottom:10px">카테고리 선택</div>
-        <div id="catBtns" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-      </div>
-      <div id="inputRow" style="border-top:1px solid #1a1a1a;padding-top:14px;display:flex;gap:8px">
+    <div class="card" style="margin-bottom:14px">
+      <div style="font-size:10px;color:#444;font-family:monospace;letter-spacing:2px;margin-bottom:10px">카테고리 선택</div>
+      <div id="catBtns" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px"></div>
+      <div class="row-mobile" style="display:flex;gap:8px;margin-bottom:8px">
         <input id="kwInput" placeholder="키워드 직접 입력 (예: 생리주기, 수면 앱, 가계부...)" />
-        <button class="run-btn" id="runBtn">분석 시작 ▶</button>
+        <button class="btn btn-run" id="runBtn">분석 시작 ▶</button>
+      </div>
+      <div class="row-mobile" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="favBtn">☆ 즐겨찾기 추가</button>
+        <button class="btn" id="exportCsvBtn" disabled>CSV 내보내기</button>
       </div>
     </div>
 
-    <div id="progressBox" style="display:none;background:#0d0d0d;border:1px solid #1e1e1e;border-radius:10px;padding:16px 20px;margin-bottom:24px">
+    <div class="card" style="margin-bottom:14px">
+      <div style="font-size:10px;color:#444;font-family:monospace;letter-spacing:2px;margin-bottom:8px">최근 검색 (클릭 시 자동 입력)</div>
+      <div id="recentKeywords" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      <div style="font-size:10px;color:#444;font-family:monospace;letter-spacing:2px;margin:12px 0 8px">즐겨찾기 키워드</div>
+      <div id="favoriteKeywords" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div style="font-size:10px;color:#444;font-family:monospace;letter-spacing:2px;margin-bottom:8px">키워드 비교 (쉼표 구분, 2~5개)</div>
+      <div class="row-mobile" style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="compareInput" placeholder="예: 가계부, 할일 관리, 수면 앱" />
+        <button class="btn" id="compareBtn">비교 분석</button>
+      </div>
+      <div id="compareBox" style="display:none"></div>
+    </div>
+
+    <div id="progressBox" style="display:none" class="card">
       <div style="font-size:10px;color:#f0a500;font-family:monospace;letter-spacing:2px;margin-bottom:12px">▶ 실시간 데이터 수집 현황</div>
       <div id="stepList" style="display:grid;gap:9px"></div>
     </div>
 
-    <div id="errorBox" style="display:none;background:#120404;border:1px solid #3d0808;border-radius:8px;padding:14px;margin-bottom:20px;color:#ef5350;font-size:12px;font-family:monospace"></div>
-    <div id="reportBox" style="display:none;animation:slideUp 0.4s ease"></div>
+    <div id="errorBox" style="display:none;background:#120404;border:1px solid #3d0808;border-radius:8px;padding:14px;margin:16px 0;color:#ef5350;font-size:12px;font-family:monospace"></div>
+    <div id="reportBox" style="display:none;animation:slideUp 0.4s ease;margin-top:16px"></div>
 
-    <div id="emptyState" style="text-align:center;padding:60px 0;color:#1a1a1a">
+    <div id="emptyState" style="text-align:center;padding:50px 0;color:#1a1a1a">
       <div style="font-size:44px;margin-bottom:16px">◈</div>
-      <div style="font-size:11px;color:#252525;letter-spacing:1px;line-height:2.2;font-family:monospace">
-        §1 키워드 수요 분석 (실제 앱 수·경쟁강도)<br />
-        §2 경쟁 환경 분석 (실제 앱 데이터)<br />
-        §3 무료 핵심 리포트 생성<br />
+      <div style="font-size:11px;color:#252525;letter-spacing:1px;line-height:2.1;font-family:monospace">
+        §1 실제/추정 데이터 라벨링<br />
+        §2 네트워크 실패 자동 재시도<br />
+        §3 비교 분석 + CSV 내보내기
       </div>
     </div>
   </div>
 
   <script>
+    const API_BASE_URL = (document.querySelector('meta[name="app-api-base-url"]')?.content || "").trim().replace(/\/$/, "");
+    const LS_RECENT = "appsourcer_recent_keywords_v2";
+    const LS_FAVORITES = "appsourcer_favorites_v2";
+    const STEPS = [
+      { label: "Google Play 데이터 수집", icon: "🔍" },
+      { label: "핵심 지표 계산", icon: "📊" },
+      { label: "리포트 생성 완료", icon: "✅" }
+    ];
     const CATEGORIES = [
       { id: "health", label: "헬스/웰니스", icon: "♥", kw: "건강 관리 앱" },
       { id: "finance", label: "금융/핀테크", icon: "₩", kw: "가계부 앱" },
@@ -178,35 +213,78 @@
       { id: "social", label: "소셜/커뮤니티", icon: "◎", kw: "커뮤니티 앱" }
     ];
 
-    const STEPS = [
-      { label: "Google Play 데이터 수집", icon: "🔍" },
-      { label: "핵심 지표 계산", icon: "📊" },
-      { label: "리포트 생성 완료", icon: "✅" }
-    ];
-
     let selectedCat = null;
-    const API_BASE_URL = (document.querySelector('meta[name="app-api-base-url"]')?.content || "").trim().replace(/\/$/, "");
+    let isAnalyzing = false;
+    let currentKeyword = "";
+    let currentMetrics = null;
+    let recentKeywords = loadList(LS_RECENT, 8);
+    let favoriteKeywords = loadList(LS_FAVORITES, 12);
 
-    const catContainer = document.getElementById("catBtns");
-    CATEGORIES.forEach((cat) => {
-      const btn = document.createElement("button");
-      btn.className = "cat-btn";
-      btn.textContent = `${cat.icon} ${cat.label}`;
-      btn.onclick = () => {
-        selectedCat = selectedCat === cat.id ? null : cat.id;
-        document.querySelectorAll(".cat-btn").forEach((b) => {
-          b.style.background = "transparent";
-          b.style.borderColor = "#222";
-          b.style.color = "#555";
+    function loadList(key, max) {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+        return Array.isArray(parsed) ? parsed.filter(Boolean).slice(0, max) : [];
+      } catch (_err) {
+        return [];
+      }
+    }
+
+    function saveList(key, list, max) {
+      const normalized = [...new Set(list.map((v) => String(v).trim()).filter(Boolean))].slice(0, max);
+      localStorage.setItem(key, JSON.stringify(normalized));
+      return normalized;
+    }
+
+    function tag(text, color, bg) {
+      return `<span class="tag" style="color:${color};background:${bg};border:1px solid ${color}30">${text}</span>`;
+    }
+
+    function setupCategories() {
+      const catContainer = document.getElementById("catBtns");
+      CATEGORIES.forEach((cat) => {
+        const btn = document.createElement("button");
+        btn.className = "cat-btn";
+        btn.textContent = `${cat.icon} ${cat.label}`;
+        btn.onclick = () => {
+          selectedCat = selectedCat === cat.id ? null : cat.id;
+          document.querySelectorAll(".cat-btn").forEach((b) => {
+            b.style.background = "transparent";
+            b.style.borderColor = "#222";
+            b.style.color = "#555";
+          });
+          if (selectedCat) {
+            btn.style.background = "#1a1200";
+            btn.style.borderColor = "#f0a500";
+            btn.style.color = "#f0a500";
+            document.getElementById("kwInput").value = cat.kw;
+          }
+        };
+        catContainer.appendChild(btn);
+      });
+    }
+
+    function renderKeywordLists() {
+      const recentBox = document.getElementById("recentKeywords");
+      const favBox = document.getElementById("favoriteKeywords");
+      recentBox.innerHTML = recentKeywords.length
+        ? recentKeywords.map((kw) => `<button class="chip" data-kw="${kw}">${kw}</button>`).join("")
+        : '<span style="color:#555;font-size:11px">아직 검색 기록이 없습니다</span>';
+
+      favBox.innerHTML = favoriteKeywords.length
+        ? favoriteKeywords.map((kw) => `<button class="chip fav" data-fkw="${kw}">★ ${kw}</button>`).join("")
+        : '<span style="color:#555;font-size:11px">즐겨찾기 키워드를 추가해보세요</span>';
+
+      recentBox.querySelectorAll("[data-kw]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.getElementById("kwInput").value = btn.getAttribute("data-kw") || "";
         });
-        if (selectedCat) {
-          btn.style.background = "#1a1200";
-          btn.style.borderColor = "#f0a500";
-          btn.style.color = "#f0a500";
-        }
-      };
-      catContainer.appendChild(btn);
-    });
+      });
+      favBox.querySelectorAll("[data-fkw]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.getElementById("kwInput").value = btn.getAttribute("data-fkw") || "";
+        });
+      });
+    }
 
     function renderSteps(statuses) {
       const box = document.getElementById("stepList");
@@ -215,24 +293,49 @@
         const color = st === "done" ? "#66bb6a" : st === "run" ? "#f0a500" : "#2a2a2a";
         const icon = st === "done" ? "✓" : st === "run" ? "◌" : "○";
         const anim = st === "run" ? "animation:pulse 0.8s infinite" : "";
-        const badge = st === "done"
-          ? '<span class="tag" style="background:#0a1a0a;border:1px solid #1a3a1a;color:#66bb6a">완료</span>'
-          : st === "run"
-          ? '<span class="tag" style="background:#1a1200;border:1px solid #3a2a00;color:#f0a500">진행 중...</span>'
-          : "";
         return `<div style="display:flex;align-items:center;gap:10px">
           <span style="font-size:13px;color:${color};font-family:monospace;width:16px;${anim}">${icon}</span>
           <span style="font-size:12px;color:${st === "wait" ? "#444" : color}">${step.icon} ${step.label}</span>
-          ${badge}
         </div>`;
       }).join("");
     }
 
-    function tag(text, color, bg) {
-      return `<span class="tag" style="color:${color};background:${bg};border:1px solid ${color}30">${text}</span>`;
+    async function fetchWithRetry(url, options = {}) {
+      const retries = options.retries ?? 2;
+      const timeoutMs = options.timeoutMs ?? 15000;
+      const retryDelayMs = options.retryDelayMs ?? 800;
+
+      let lastErr;
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          clearTimeout(timer);
+          return response;
+        } catch (err) {
+          clearTimeout(timer);
+          lastErr = err;
+          if (attempt < retries) {
+            await new Promise((resolve) => setTimeout(resolve, retryDelayMs * (attempt + 1)));
+          }
+        }
+      }
+      throw lastErr || new Error("요청 실패");
     }
 
-    function renderFreeMetricsReport(keyword, metrics) {
+    function buildAssumptionRows(metrics) {
+      const assumptions = metrics.revenueEstimateAssumptions || {};
+      const entries = Object.entries(assumptions);
+      if (!entries.length) {
+        return '<div style="color:#555;font-size:11px">가정값 정보가 없습니다</div>';
+      }
+      return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px">${entries
+        .map(([k, v]) => `<div style="background:#090909;border:1px solid #161616;border-radius:6px;padding:8px 10px"><div style="font-size:10px;color:#4fc3f7">${k}</div><div style="font-size:11px;color:#777">${v}</div></div>`)
+        .join("")}</div>`;
+    }
+
+    function renderMetricsReport(keyword, metrics, meta = {}) {
       const score = Number(metrics.averageRating || 0);
       const verdict = score >= 4.3
         ? { l: "GO ✓", c: "#66bb6a", b: "#0a1a0a" }
@@ -241,16 +344,19 @@
         : { l: "WATCH ✗", c: "#ef5350", b: "#1a0505" };
 
       const cards = [
-        ["평균 평점", metrics.averageRating],
-        ["상위 경쟁앱 수", `${metrics.competitorCount}개`],
-        ["부정리뷰 비율", metrics.negativeReviewRate],
-        ["IAP 비율", metrics.iapRatio],
-        ["광고 비율", metrics.adSupportedRatio],
-        ["상위앱 총 추정 월수익", metrics.estimatedMonthlyRevenueTotalRange || "-"]
-      ].map(([label, value]) => `
+        ["평균 평점", metrics.averageRating, true],
+        ["상위 경쟁앱 수", `${metrics.competitorCount}개`, true],
+        ["부정리뷰 비율", metrics.negativeReviewRate, true],
+        ["IAP 비율", metrics.iapRatio, true],
+        ["광고 비율", metrics.adSupportedRatio, true],
+        ["상위앱 총 추정 월수익", metrics.estimatedMonthlyRevenueTotalRange || "-", false]
+      ].map(([label, value, isActual]) => `
         <div class="card">
-          <div style="font-size:9px;color:#444;margin-bottom:4px">${label}</div>
-          <div style="font-size:18px;font-weight:800;color:#f0a500;font-family:monospace">${value}</div>
+          <div style="font-size:9px;color:#444;margin-bottom:4px;display:flex;justify-content:space-between;gap:6px">
+            <span>${label}</span>
+            ${isActual ? tag("실제", "#66bb6a", "#0a1a0a") : tag("추정", "#f0a500", "#1a1200")}
+          </div>
+          <div style="font-size:17px;font-weight:800;color:#f0a500;font-family:monospace">${value}</div>
         </div>
       `).join("");
 
@@ -264,12 +370,12 @@
           <td>${app.negativeReviewRate || "0.00%"}</td>
           <td>${app.offersIAP ? "있음" : "없음"}</td>
           <td>${app.adSupported ? "있음" : "없음"}</td>
-          <td style="color:#f0a500">${app.estimatedRevenueRange || "-"}</td>
+          <td style="color:#f0a500">${app.estimatedRevenueRange || "-"} ${tag("추정", "#f0a500", "#1a1200")}</td>
         </tr>
       `).join("");
 
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;padding:12px 16px;background:#0a1a0a;border:1px solid #1a3a1a;border-radius:8px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:12px 16px;background:#0a1a0a;border:1px solid #1a3a1a;border-radius:8px;flex-wrap:wrap;gap:8px">
           <div>
             <div style="font-size:10px;color:#66bb6a;font-family:monospace;letter-spacing:2px">▶ FREE REPORT — GOOGLE PLAY 실제 데이터</div>
             <div style="font-size:13px;font-weight:700;color:#fff;margin-top:3px">"${keyword}" 무료 분석 완료</div>
@@ -277,7 +383,18 @@
           ${tag(`${verdict.l} 평점 ${metrics.averageRating}`, verdict.c, verdict.b)}
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:16px">${cards}</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+          ${tag(`cache: ${meta.cacheStatus || "-"}`, "#4fc3f7", "#050f14")}
+          ${tag(`analyzed: ${metrics.analyzedAppsCount || 0} apps`, "#66bb6a", "#0a1a0a")}
+          ${tag(`generatedAt: ${metrics.generatedAt || "-"}`, "#888", "#101010")}
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:14px">${cards}</div>
+
+        <div class="card" style="margin-bottom:14px">
+          <div style="font-size:10px;color:#4fc3f7;font-family:monospace;letter-spacing:2px;margin-bottom:8px">▶ 수익 추정 가정값</div>
+          ${buildAssumptionRows(metrics)}
+        </div>
 
         <div class="card" style="padding-top:10px">
           <div style="font-size:10px;color:#4fc3f7;font-family:monospace;letter-spacing:2px;margin-bottom:10px">▶ 상위 경쟁 앱 상세</div>
@@ -289,18 +406,37 @@
               <tbody>${rows}</tbody>
             </table>
           </div>
-          <div style="margin-top:10px;font-size:10px;color:#444;font-family:monospace">generatedAt: ${metrics.generatedAt || "-"}</div>
         </div>
       `;
     }
 
+    function addToRecent(keyword) {
+      recentKeywords = saveList(LS_RECENT, [keyword, ...recentKeywords], 8);
+      renderKeywordLists();
+    }
+
+    function addToFavorites(keyword) {
+      favoriteKeywords = saveList(LS_FAVORITES, [keyword, ...favoriteKeywords], 12);
+      renderKeywordLists();
+    }
+
+    function parseJsonSafe(text) {
+      try {
+        return JSON.parse(text);
+      } catch (_err) {
+        return null;
+      }
+    }
+
     async function startAnalyze() {
-      const keyword = document.getElementById("kwInput").value.trim() || CATEGORIES.find((c) => c.id === selectedCat)?.kw;
+      const keyword = (document.getElementById("kwInput").value.trim() || CATEGORIES.find((c) => c.id === selectedCat)?.kw || "").trim();
       if (!keyword) {
         alert("카테고리를 선택하거나 키워드를 입력하세요");
         return;
       }
+      if (isAnalyzing) return;
 
+      isAnalyzing = true;
       document.getElementById("emptyState").style.display = "none";
       document.getElementById("reportBox").style.display = "none";
       document.getElementById("errorBox").style.display = "none";
@@ -313,43 +449,156 @@
         steps[0] = "run";
         renderSteps(steps);
 
-        const response = await fetch(`${API_BASE_URL}/api/metrics?keyword=${encodeURIComponent(keyword)}&searchSize=30&detailSize=10`);
-        const contentType = response.headers.get("content-type") || "";
-        if (!contentType.includes("application/json")) {
-          throw new Error("API가 JSON 대신 HTML을 반환했습니다. 정적 호스팅이면 meta app-api-base-url에 백엔드 주소를 설정하세요.");
-        }
-        const payload = await response.json();
+        const url = `${API_BASE_URL}/api/metrics?keyword=${encodeURIComponent(keyword)}&searchSize=30&detailSize=10`;
+        const response = await fetchWithRetry(url, { retries: 2, timeoutMs: 18000, retryDelayMs: 800 });
 
+        const rawText = await response.text();
+        const contentType = response.headers.get("content-type") || "";
+        const payload = parseJsonSafe(rawText);
+
+        if (!contentType.includes("application/json") || !payload) {
+          throw new Error("API가 JSON 대신 HTML/텍스트를 반환했습니다. 백엔드 URL 또는 CORS 설정을 확인하세요.");
+        }
         if (!response.ok || payload.error) {
           throw new Error(payload.error || `요청 실패 (${response.status})`);
+        }
+        if (!payload.metrics) {
+          throw new Error("metrics 응답이 비어 있습니다");
         }
 
         steps[0] = "done";
         steps[1] = "run";
         renderSteps(steps);
 
-        if (!payload.metrics) {
-          throw new Error("metrics 응답이 비어 있습니다");
-        }
+        currentKeyword = keyword;
+        currentMetrics = payload.metrics;
+        addToRecent(keyword);
 
         steps[1] = "done";
         steps[2] = "done";
         renderSteps(steps);
 
-        document.getElementById("reportBox").innerHTML = renderFreeMetricsReport(keyword, payload.metrics);
+        document.getElementById("reportBox").innerHTML = renderMetricsReport(keyword, payload.metrics, payload.meta || {});
         document.getElementById("reportBox").style.display = "block";
+        document.getElementById("exportCsvBtn").disabled = false;
       } catch (err) {
         document.getElementById("errorBox").textContent = `⚠ ${err.message}`;
         document.getElementById("errorBox").style.display = "block";
       } finally {
+        isAnalyzing = false;
         document.getElementById("runBtn").disabled = false;
       }
+    }
+
+    async function compareKeywords() {
+      const raw = document.getElementById("compareInput").value.trim();
+      const list = raw.split(",").map((v) => v.trim()).filter(Boolean);
+      if (list.length < 2 || list.length > 5) {
+        alert("비교 키워드는 2개 이상 5개 이하로 입력하세요");
+        return;
+      }
+
+      const box = document.getElementById("compareBox");
+      box.style.display = "block";
+      box.innerHTML = '<div style="color:#666;font-size:12px">비교 데이터를 수집 중입니다...</div>';
+
+      try {
+        const url = `${API_BASE_URL}/api/compare?keywords=${encodeURIComponent(list.join(","))}`;
+        const response = await fetchWithRetry(url, { retries: 2, timeoutMs: 20000, retryDelayMs: 700 });
+        const payload = await response.json();
+        if (!response.ok || payload.error) {
+          throw new Error(payload.error || `비교 실패 (${response.status})`);
+        }
+
+        const rows = (payload.rows || []).map((row) => `
+          <tr>
+            <td style="color:#ddd">${row.keyword}</td>
+            <td style="color:#66bb6a">${row.averageRating}</td>
+            <td>${row.competitorCount}</td>
+            <td>${row.negativeReviewRate}</td>
+            <td>${row.iapRatio}</td>
+            <td>${row.adSupportedRatio}</td>
+            <td style="color:#f0a500">${row.estimatedMonthlyRevenueTotalRange}</td>
+            <td>${row.cacheStatus}</td>
+          </tr>
+        `).join("");
+
+        box.innerHTML = `
+          <div style="overflow-x:auto">
+            <table>
+              <thead>
+                <tr><th>키워드</th><th>평균평점</th><th>경쟁앱수</th><th>부정리뷰%</th><th>IAP%</th><th>광고%</th><th>총 추정 월수익</th><th>cache</th></tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        box.innerHTML = `<div style="color:#ef5350;font-size:12px">⚠ ${err.message}</div>`;
+      }
+    }
+
+    function exportCsv() {
+      if (!currentMetrics || !currentKeyword) return;
+      const lines = [
+        ["keyword", currentKeyword],
+        ["averageRating", currentMetrics.averageRating],
+        ["competitorCount", currentMetrics.competitorCount],
+        ["negativeReviewRate", currentMetrics.negativeReviewRate],
+        ["iapRatio", currentMetrics.iapRatio],
+        ["adSupportedRatio", currentMetrics.adSupportedRatio],
+        ["estimatedMonthlyRevenueTotalRange", currentMetrics.estimatedMonthlyRevenueTotalRange],
+        [],
+        ["rank", "title", "developer", "score", "installs", "negativeReviewRate", "offersIAP", "adSupported", "estimatedRevenueRange"]
+      ];
+
+      (currentMetrics.topCompetitors || []).forEach((app, idx) => {
+        lines.push([
+          idx + 1,
+          app.title || "",
+          app.developer || "",
+          app.score ?? "",
+          app.installs || "",
+          app.negativeReviewRate || "",
+          app.offersIAP ? "yes" : "no",
+          app.adSupported ? "yes" : "no",
+          app.estimatedRevenueRange || ""
+        ]);
+      });
+
+      const csv = lines
+        .map((row) => row.map((value) => `"${String(value || "").replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `appsourcer-${currentKeyword.replace(/\s+/g, "-")}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     }
 
     document.getElementById("runBtn").addEventListener("click", startAnalyze);
     document.getElementById("kwInput").addEventListener("keydown", (event) => {
       if (event.key === "Enter") startAnalyze();
     });
+    document.getElementById("favBtn").addEventListener("click", () => {
+      const kw = document.getElementById("kwInput").value.trim();
+      if (!kw) return;
+      addToFavorites(kw);
+    });
+    document.getElementById("compareBtn").addEventListener("click", compareKeywords);
+    document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
+
+    setupCategories();
+    renderKeywordLists();
+    const suggestion = recentKeywords.slice(0, 3);
+    if (suggestion.length >= 2) {
+      document.getElementById("compareInput").value = suggestion.join(", ");
+    }
   </script>
 </body>
 </html>
