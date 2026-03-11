@@ -706,7 +706,7 @@
         renderSteps(steps);
 
         const refreshQuery = forceRefreshMode ? "&refresh=1" : "";
-        const url = `${API_BASE_URL}/api/metrics?keyword=${encodeURIComponent(keyword)}&searchSize=30&detailSize=10${refreshQuery}`;
+        const url = `${API_BASE_URL}/api/metrics?keyword=${encodeURIComponent(keyword)}&searchSize=30&detailSize=20${refreshQuery}`;
         const response = await fetchWithRetry(url, { retries: 2, timeoutMs: 18000, retryDelayMs: 800 });
 
         const rawText = await response.text();
@@ -751,7 +751,8 @@
     }
 
     async function compareKeywords() {
-      const raw = document.getElementById("compareInput").value.trim();
+      const inputEl = document.getElementById("compareInput");
+      const raw = inputEl.value.trim();
       const list = raw.split(",").map((v) => v.trim()).filter(Boolean);
       if (list.length < 2 || list.length > 5) {
         alert("비교 키워드는 2개 이상 5개 이하로 입력하세요");
@@ -764,7 +765,7 @@
 
       try {
         const refreshQuery = forceRefreshMode ? "&refresh=1" : "";
-        const url = `${API_BASE_URL}/api/compare?keywords=${encodeURIComponent(list.join(","))}${refreshQuery}`;
+        const url = `${API_BASE_URL}/api/compare?keywords=${encodeURIComponent(list.join(","))}&searchSize=30&detailSize=20${refreshQuery}`;
         const response = await fetchWithRetry(url, { retries: 2, timeoutMs: 20000, retryDelayMs: 700 });
         const payload = await response.json();
         if (!response.ok || payload.error) {
@@ -772,6 +773,7 @@
         }
         currentCompareRows = payload.rows || [];
         renderCompareTable();
+        inputEl.value = "";
       } catch (err) {
         box.innerHTML = `<div style="color:#ef5350;font-size:12px">⚠ ${err.message}</div>`;
       }
@@ -858,10 +860,6 @@
     renderSubcategoryOptions(null);
     renderKeywordLists();
     updateRefreshButton();
-    const suggestion = recentKeywords.slice(0, 3);
-    if (suggestion.length >= 2) {
-      document.getElementById("compareInput").value = suggestion.join(", ");
-    }
   </script>
 </body>
 </html>

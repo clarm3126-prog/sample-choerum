@@ -466,7 +466,7 @@ app.get("/api/metrics", async (req, res) => {
   if (!keyword) return res.status(400).json({ error: "keyword 필요" });
 
   const searchSize = Math.max(5, Math.min(50, toNumber(req.query.searchSize) || 20));
-  const detailSize = Math.max(3, Math.min(20, toNumber(req.query.detailSize) || 10));
+  const detailSize = Math.max(3, Math.min(20, toNumber(req.query.detailSize) || 20));
   const forceRefresh = req.query.refresh === "1";
 
   try {
@@ -496,8 +496,8 @@ app.get("/api/compare", async (req, res) => {
     return res.status(400).json({ error: "비교를 위해 키워드 2개 이상이 필요합니다" });
   }
 
-  const searchSize = Math.max(5, Math.min(30, toNumber(req.query.searchSize) || 15));
-  const detailSize = Math.max(3, Math.min(10, toNumber(req.query.detailSize) || 6));
+  const searchSize = Math.max(5, Math.min(50, toNumber(req.query.searchSize) || 30));
+  const detailSize = Math.max(3, Math.min(20, toNumber(req.query.detailSize) || 20));
   const keywordConcurrency = Math.max(1, Math.min(3, toNumber(req.query.keywordConcurrency) || 2));
   const forceRefresh = req.query.refresh === "1";
 
@@ -570,7 +570,7 @@ app.post("/api/analyze", async (req, res) => {
 
 [상위 앱 목록]
 ${(searchData?.apps || [])
-  .slice(0, 10)
+  .slice(0, 20)
   .map(
     (a, i) =>
       `${i + 1}. "${a.title}" (${a.developer}) | 평점:${a.score} | 리뷰:${(a.reviews || 0).toLocaleString()}개 | 설치:${a.installs} | 무료:${a.free}`,
